@@ -1,0 +1,20 @@
+{
+    "name": "adamjenkins/moodle-local_forumcare",
+    "description": "Lets students report problematic posts in mod_forum forums, with configurable auto-moderation (hide posts, suspend users) and a teacher review queue.",
+    "type": "moodle-local",
+    "license": "GPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Adam Jenkins",
+            "email": "adam@wisecat.net"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/adamjenkins/moodle-local_forumcare/issues",
+        "source": "https://github.com/adamjenkins/moodle-local_forumcare"
+    },
+    "require": {
+        "moodle/moodle": ">=4.5",
+        "moodle/composer-installer": "*"
+    }
+}
