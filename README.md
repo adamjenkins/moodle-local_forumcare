@@ -58,6 +58,7 @@ This plugin stores personal data (who reported what, and why) and implements the
 ## Development
 
 - Code style: Moodle coding standard (`local_codechecker` / `moodle-plugin-ci phpcs`).
+- JavaScript: `amd/src/report.js` is ES6 source; run `grunt amd` from the Moodle root after editing it to regenerate `amd/build/report.min.js` and its sourcemap.
 - Tests: `tests/` contains PHPUnit coverage for threshold enforcement, moderation actions, course reason overrides, and the privacy provider.
 - CI: see `.github/workflows/ci.yml`, which runs the full `moodle-plugin-ci` suite (phplint, phpcs, phpdoc, validate, savepoints, mustache, grunt, phpunit, behat) against Moodle 5.0, 5.1, and 5.2.
 

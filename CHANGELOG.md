@@ -4,6 +4,12 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- `amd/src/report.js` is now genuine ES6 source, and `amd/build/report.min.js` (with its sourcemap) is built from it via `grunt amd`, replacing the previous hand-compiled AMD module that was kept identical to the source as a workaround for not having a working grunt toolchain.
+
 ## [1.0.0] - 2026-06-25
 
 ### Added
