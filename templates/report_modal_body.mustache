@@ -1,0 +1,46 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_forumcare/report_modal_body
+
+    Body content for the "Report this post" modal.
+
+    Context variables required for this template:
+    * reasons - array of {id, name} report reasons
+
+    Example context (json):
+    {
+        "reasons": [
+            {"id": 1, "name": "Offensive language"},
+            {"id": 2, "name": "Overuse of AI"}
+        ]
+    }
+}}
+<form data-region="forumcare-report-form">
+    <div class="mb-3">
+        <label class="form-label" for="forumcare-reason">{{#str}} reportreason, local_forumcare {{/str}}</label>
+        <select class="form-select" id="forumcare-reason" data-region="forumcare-reason">
+            {{#reasons}}
+                <option value="{{id}}">{{name}}</option>
+            {{/reasons}}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label class="form-label" for="forumcare-comment">{{#str}} reportcomment, local_forumcare {{/str}}</label>
+        <textarea class="form-control" id="forumcare-comment" data-region="forumcare-comment" rows="3"></textarea>
+    </div>
+</form>
