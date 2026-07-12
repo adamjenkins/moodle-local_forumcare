@@ -105,7 +105,12 @@ jobs:
         run: moodle-plugin-ci mustache
 
       - name: Grunt
-        if: ${{ !cancelled() }}
+        # Each Moodle branch ships its own JS toolchain and they do not produce
+        # byte-identical minified bundles, so the "stale build" check can only
+        # ever pass against the toolchain the committed bundles were built with.
+        # The bundles in this repository are built with the MOODLE_502_STABLE
+        # toolchain; the ESLint part of the check still runs there too.
+        if: ${{ !cancelled() && matrix.moodle-branch == 'MOODLE_502_STABLE' }}
         run: moodle-plugin-ci grunt --max-lint-warnings 0
 
       - name: PHPUnit tests
