@@ -4,7 +4,26 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [1.1.0] - 2026-07-12
+
+### Added
+
+- Course lifecycle handling: event observers now clean up forum care data
+  when a forum is deleted (its settings and reports), when a course is
+  deleted (its reports, course settings and course-specific reasons), and
+  when a course is reset (reports pointing at posts removed by the reset).
+- Course backup and restore support: the per-forum forum care settings
+  (opt-in and threshold overrides) are included in course/activity backups
+  and restored with the forum. Reports themselves are deliberately excluded
+  from backups, as they are moderation data about identifiable users.
+- PHPUnit coverage for the new observers.
+
+### Changed
+
+- CI matrix corrected: Moodle 5.0 is tested on PHP 8.2-8.3 only (not 8.4),
+  alongside Moodle 5.1 (PHP 8.2-8.4) and 5.2 (PHP 8.3-8.4).
+- Added the moodle-release.yml workflow for automatic Moodle Plugins
+  directory releases, and CHANGES.md release notes.
 
 ### Fixed
 

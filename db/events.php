@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version information for local_forumcare.
+ * Event observers for local_forumcare.
  *
  * @package    local_forumcare
  * @copyright  2026 Adam Jenkins <adam@wisecat.net>
@@ -24,9 +24,17 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_forumcare';
-$plugin->version   = 2026062503;
-$plugin->requires  = 2024100700;
-$plugin->supported = [500, 502];
-$plugin->release   = '1.1.0';
-$plugin->maturity  = MATURITY_BETA;
+$observers = [
+    [
+        'eventname' => '\core\event\course_module_deleted',
+        'callback' => '\local_forumcare\local\observer::course_module_deleted',
+    ],
+    [
+        'eventname' => '\core\event\course_deleted',
+        'callback' => '\local_forumcare\local\observer::course_deleted',
+    ],
+    [
+        'eventname' => '\core\event\course_reset_ended',
+        'callback' => '\local_forumcare\local\observer::course_reset_ended',
+    ],
+];

@@ -79,5 +79,11 @@ function xmldb_local_forumcare_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026062502, 'local', 'forumcare');
     }
 
+    if ($oldversion < 2026062503) {
+        // Event observers (db/events.php) and course backup/restore support
+        // were added; there is no data to migrate.
+        upgrade_plugin_savepoint(true, 2026062503, 'local', 'forumcare');
+    }
+
     return true;
 }

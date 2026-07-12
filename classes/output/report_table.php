@@ -135,11 +135,12 @@ class report_table extends \table_sql {
      * @return array [fields, from, where, params]
      */
     protected function build_query(int $courseid, int $forumid, int $reporterid, int $reporteeid): array {
+        $reporterfields = \core_user\fields::for_name()->get_sql('reporter', false, 'reporter', '', false)->selects;
+        $reporteefields = \core_user\fields::for_name()->get_sql('reportee', false, 'reportee', '', false)->selects;
         $fields = 'r.id, r.postid, r.discussionid, r.forumid, r.courseid, r.reporterid, r.reasonid, r.comment,
                    r.status, r.outcome, r.timecreated, p.userid AS reporteeid, p.subject, p.message,
                    p.deleted AS postdeleted, f.name AS forumname, rs.name AS reasonname,
-                   reporter.firstname AS reporterfirstname, reporter.lastname AS reporterlastname,
-                   reportee.firstname AS reporteefirstname, reportee.lastname AS reporteelastname,
+                   ' . $reporterfields . ', ' . $reporteefields . ',
                    (SELECT COUNT(*) FROM {local_forumcare_report} r2
                      WHERE r2.postid = r.postid AND r2.status = \'pending\') AS reportcount';
         $from = '{local_forumcare_report} r
@@ -207,7 +208,7 @@ class report_table extends \table_sql {
      * @return string
      */
     public function col_reporter(\stdClass $row): string {
-        $name = fullname((object) ['firstname' => $row->reporterfirstname, 'lastname' => $row->reporterlastname]);
+        $name = fullname(username_load_fields_from_object((object) [], $row, 'reporter'));
         $profileurl = new \moodle_url('/user/profile.php', ['id' => $row->reporterid, 'course' => $row->courseid]);
         return \html_writer::link($profileurl, $name);
     }
@@ -219,7 +220,7 @@ class report_table extends \table_sql {
      * @return string
      */
     public function col_reportee(\stdClass $row): string {
-        $name = fullname((object) ['firstname' => $row->reporteefirstname, 'lastname' => $row->reporteelastname]);
+        $name = fullname(username_load_fields_from_object((object) [], $row, 'reportee'));
         $profileurl = new \moodle_url('/user/profile.php', ['id' => $row->reporteeid, 'course' => $row->courseid]);
         return \html_writer::link($profileurl, $name);
     }

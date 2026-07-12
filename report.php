@@ -74,7 +74,8 @@ foreach ($forums as $forum) {
     $forumoptions[$forum->id] = format_string($forum->name);
 }
 
-$userssql = "SELECT DISTINCT u.id, u.firstname, u.lastname
+$namefields = \core_user\fields::for_name()->get_sql('u', false, '', '', false)->selects;
+$userssql = "SELECT DISTINCT u.id, {$namefields}
                FROM {user} u
               WHERE u.id IN (
                   SELECT r.reporterid FROM {local_forumcare_report} r WHERE r.courseid = :courseid1
