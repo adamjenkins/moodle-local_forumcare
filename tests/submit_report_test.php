@@ -209,6 +209,50 @@ final class submit_report_test extends \advanced_testcase {
     }
 
     /**
+     * A single reporter filing reports against several different posts by the
+     * same author must NOT reach the course-suspend threshold on their own: the
+     * threshold counts distinct reporters, not total reports.
+     */
+    public function test_single_reporter_cannot_suspend_author(): void {
+        global $DB;
+
+        $author = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($author->id, $this->course->id, 'student');
+
+        $reporter = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($reporter->id, $this->course->id, 'student');
+
+        // Threshold_suspend is 2 (setUp). One reporter reports three different
+        // posts by the author: that is one distinct reporter, below threshold.
+        $this->setUser($reporter);
+        for ($i = 0; $i < 3; $i++) {
+            $post = $this->create_post($author);
+            submit_report::execute($post->id, $this->reasonid, '');
+        }
+
+        $enrolment = $DB->get_record_sql(
+            "SELECT ue.* FROM {user_enrolments} ue
+               JOIN {enrol} e ON e.id = ue.enrolid
+              WHERE e.courseid = :courseid AND ue.userid = :userid",
+            ['courseid' => $this->course->id, 'userid' => $author->id]
+        );
+        $this->assertEquals(ENROL_USER_ACTIVE, $enrolment->status);
+    }
+
+    /**
+     * A user cannot report their own post (enforced server-side, not just in the UI).
+     */
+    public function test_cannot_report_own_post(): void {
+        $author = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($author->id, $this->course->id, 'student');
+        $post = $this->create_post($author);
+
+        $this->setUser($author);
+        $this->expectException(\moodle_exception::class);
+        submit_report::execute($post->id, $this->reasonid, '');
+    }
+
+    /**
      * A user blocked by the frivolous-report threshold must see no difference:
      * submission still succeeds, but the report is recorded as 'ignored' and
      * never counts toward any threshold (e.g. doesn't trigger auto-hide).

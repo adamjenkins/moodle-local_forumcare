@@ -10,8 +10,8 @@ A Moodle local plugin that lets students report problematic posts in `mod_forum`
 - **Site-wide master switch** in Site administration, independent of the per-forum opt-in.
 - **Configurable thresholds**:
   - Auto-hide a post once it receives N open reports.
-  - Auto-suspend a user's enrolment in a course once their posts receive N open reports in that course.
-  - Optional admin-only auto-suspend of a user's account site-wide once their posts receive N open reports across the whole site.
+  - Auto-suspend a user's enrolment in a course once N **different** users have open reports against their posts in that course (the threshold counts distinct reporters, so one person reporting many of a user's posts cannot trigger it alone).
+  - Optional admin-only auto-suspend of a user's account site-wide once N **different** users have open reports against their posts across the whole site.
   - Auto-block a user from submitting further reports once N of their past reports have been marked frivolous by a moderator. A blocked user sees no difference in the UI — their report is silently recorded but excluded from every threshold count.
   - Any per-forum threshold can be set to `0` to disable that specific protection for that forum only.
 - **Teacher review queue** (`/local/forumcare/report.php`), filterable by forum/reporter/reportee, with the post title, forum name, and reporter/reportee names linking to the post, forum, and profile pages respectively. Reportable columns are independently sortable.
@@ -36,6 +36,8 @@ A Moodle local plugin that lets students report problematic posts in `mod_forum`
 
 By default, every course offers the site-wide default reasons. A teacher or manager can override this for a single course from the **Forum care report reasons** link in that course's navigation: enable "Override the site-wide default report reasons for this course" and add the course's own list.
 
+A reason that has reports filed under it cannot be deleted (doing so would drop those reports from the review queue); disable it instead to stop it being offered for new reports while keeping the existing reports reviewable.
+
 ## Capabilities
 
 | Capability | Context | Default roles |
@@ -49,6 +51,8 @@ By default, every course offers the site-wide default reasons. A teacher or mana
 ## Privacy
 
 This plugin stores personal data (who reported what, and why) and implements the full `core_privacy` API. Since report rows are shared between the reporter, the reportee, and the reviewer, deleting a user's data anonymises that user's own identifying fields on the row rather than deleting the row outright, since other users still need it as moderation history.
+
+Hidden posts keep a backup of their original content (so it can be restored when unhidden). This backup is covered by the privacy API too: a subject-access export returns the author their original hidden content and tells a moderator which posts they hid, erasure anonymises the moderator id, and the backup is removed when the forum or course is deleted. Uninstalling the plugin restores every still-hidden post's original content before its tables are dropped.
 
 ## Known limitations
 

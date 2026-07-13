@@ -87,6 +87,22 @@ class provider implements
 
         $contextlist->add_from_sql($sql, $params);
 
+        // Hidden-post backups: the user may be the moderator who hid a post
+        // (hiddenby) or the author whose content is stored (post.userid).
+        $hiddensql = "SELECT ctx.id
+                        FROM {local_forumcare_hidden} h
+                        JOIN {forum_posts} p ON p.id = h.postid
+                        JOIN {forum_discussions} d ON d.id = p.discussion
+                        JOIN {course_modules} cm ON cm.instance = d.forum AND cm.course = d.course
+                        JOIN {modules} m ON m.id = cm.module AND m.name = 'forum'
+                        JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
+                       WHERE h.hiddenby = :userid1 OR p.userid = :userid2";
+        $contextlist->add_from_sql($hiddensql, [
+            'contextlevel' => CONTEXT_MODULE,
+            'userid1' => $userid,
+            'userid2' => $userid,
+        ]);
+
         return $contextlist;
     }
 
@@ -129,10 +145,38 @@ class provider implements
                 ];
             }
 
-            if (!empty($exportdata)) {
+            // Hidden-post backups for this forum where the user is the author of
+            // the hidden post or the moderator who hid it. The author gets their
+            // original content back (the live post now shows a placeholder); the
+            // moderator gets a record of the action without the author's content.
+            $hiddensql = "SELECT h.*, p.userid AS authorid
+                            FROM {local_forumcare_hidden} h
+                            JOIN {forum_posts} p ON p.id = h.postid
+                            JOIN {forum_discussions} d ON d.id = p.discussion
+                           WHERE d.forum = :forumid AND (h.hiddenby = :userid1 OR p.userid = :userid2)";
+            $hiddenrows = $DB->get_records_sql($hiddensql, [
+                'forumid' => $cm->instance,
+                'userid1' => $userid,
+                'userid2' => $userid,
+            ]);
+            $hiddendata = [];
+            foreach ($hiddenrows as $hidden) {
+                $isauthor = ($hidden->authorid == $userid);
+                $entry = [
+                    'postid' => $hidden->postid,
+                    'role' => $isauthor ? 'author' : 'moderator',
+                    'timehidden' => \core_privacy\local\request\transform::datetime($hidden->timehidden),
+                ];
+                if ($isauthor) {
+                    $entry['originalmessage'] = $hidden->originalmessage;
+                }
+                $hiddendata[] = $entry;
+            }
+
+            if (!empty($exportdata) || !empty($hiddendata)) {
                 writer::with_context($context)->export_data(
                     [get_string('pluginname', 'local_forumcare')],
-                    (object) ['reports' => $exportdata]
+                    (object) ['reports' => $exportdata, 'hiddenposts' => $hiddendata]
                 );
             }
         }
@@ -157,6 +201,16 @@ class provider implements
         }
 
         $DB->delete_records('local_forumcare_report', ['forumid' => $cm->instance]);
+
+        // Remove hidden-post backups belonging to this forum's posts.
+        $DB->delete_records_select(
+            'local_forumcare_hidden',
+            'postid IN (SELECT p.id
+                          FROM {forum_posts} p
+                          JOIN {forum_discussions} d ON d.id = p.discussion
+                         WHERE d.forum = :forumid)',
+            ['forumid' => $cm->instance]
+        );
     }
 
     /**
@@ -192,6 +246,18 @@ class provider implements
                 'forumid' => $cm->instance,
                 'reviewedby' => $userid,
             ]);
+
+            // Anonymise the moderator id on hidden-post backups for this forum.
+            $DB->set_field_select(
+                'local_forumcare_hidden',
+                'hiddenby',
+                0,
+                'hiddenby = :userid AND postid IN (SELECT p.id
+                                                     FROM {forum_posts} p
+                                                     JOIN {forum_discussions} d ON d.id = p.discussion
+                                                    WHERE d.forum = :forumid)',
+                ['userid' => $userid, 'forumid' => $cm->instance]
+            );
         }
     }
 }

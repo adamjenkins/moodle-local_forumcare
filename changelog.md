@@ -4,6 +4,35 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.1] - 2026-07-13
+
+### Security
+
+- Course and site-wide auto-suspension thresholds now count **distinct
+  reporters** rather than total reports, so a single user can no longer suspend
+  another user's enrolment by reporting many of their posts. Reporting your own
+  post is now also rejected server-side, not only hidden in the UI.
+
+### Fixed
+
+- Site-wide suspension no longer fatals: it called `\core_user::update_user()`,
+  which does not exist in Moodle 5.x. It now uses `user_update_user()`.
+- Deleting a report reason that still has reports filed under it is now blocked
+  (previously it silently removed those reports, including pending ones, from
+  the review queue). Disable the reason instead.
+- The privacy provider now services the hidden-post backup table it declares:
+  original content is exported to its author, moderator ids are anonymised on
+  erasure, and backups are purged on context deletion.
+- Deleting or resetting a forum/course now also removes orphaned hidden-post
+  backups.
+
+### Added
+
+- `db/uninstall.php` restores every still-hidden post's original content before
+  the plugin's tables are dropped, preventing permanent loss of that content if
+  the plugin is removed while posts are hidden.
+- PHPUnit coverage for all of the above (suite now 34 tests).
+
 ## [1.1.0] - 2026-07-12
 
 ### Added

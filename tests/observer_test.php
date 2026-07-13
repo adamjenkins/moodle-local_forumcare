@@ -101,6 +101,36 @@ final class observer_test extends \advanced_testcase {
     }
 
     /**
+     * Deleting a forum module also removes the backups of any of its hidden posts.
+     */
+    public function test_forum_deletion_cleans_up_hidden(): void {
+        global $DB;
+
+        [, , $cm, $postid, ] = $this->create_reported_post();
+        helper::hide_post($postid, 0, true);
+        $this->assertTrue($DB->record_exists('local_forumcare_hidden', ['postid' => $postid]));
+
+        course_delete_module($cm->id);
+
+        $this->assertFalse($DB->record_exists('local_forumcare_hidden', ['postid' => $postid]));
+    }
+
+    /**
+     * Deleting a course also removes the backups of any hidden posts in it.
+     */
+    public function test_course_deletion_cleans_up_hidden(): void {
+        global $DB;
+
+        [$course, , , $postid, ] = $this->create_reported_post();
+        helper::hide_post($postid, 0, true);
+        $this->assertTrue($DB->record_exists('local_forumcare_hidden', ['postid' => $postid]));
+
+        delete_course($course->id, false);
+
+        $this->assertFalse($DB->record_exists('local_forumcare_hidden', ['postid' => $postid]));
+    }
+
+    /**
      * Deleting a course removes reports, course settings and course reasons.
      */
     public function test_course_deletion_cleans_up(): void {

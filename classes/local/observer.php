@@ -45,6 +45,25 @@ class observer {
         $forumid = (int) $event->other['instanceid'];
         $DB->delete_records('local_forumcare_forum', ['forumid' => $forumid]);
         $DB->delete_records('local_forumcare_report', ['forumid' => $forumid]);
+        self::sweep_orphaned_hidden();
+    }
+
+    /**
+     * Remove hidden-post backups whose underlying forum post no longer exists.
+     *
+     * The _hidden table keys only on postid, and module/course deletion removes
+     * the forum's posts before our observers run, so orphaned backups are cleaned
+     * up by sweeping against the post table rather than joining to a now-empty
+     * forum. Any such row is useless anyway - the original post it backed up is gone.
+     *
+     * @return void
+     */
+    private static function sweep_orphaned_hidden(): void {
+        global $DB;
+        $DB->delete_records_select(
+            'local_forumcare_hidden',
+            'postid NOT IN (SELECT id FROM {forum_posts})'
+        );
     }
 
     /**
@@ -65,6 +84,7 @@ class observer {
         $DB->delete_records('local_forumcare_course', ['courseid' => $courseid]);
         $DB->delete_records('local_forumcare_reason', ['courseid' => $courseid]);
         $DB->delete_records_select('local_forumcare_forum', 'forumid NOT IN (SELECT id FROM {forum})');
+        self::sweep_orphaned_hidden();
     }
 
     /**
@@ -83,5 +103,6 @@ class observer {
             'courseid = :courseid AND postid NOT IN (SELECT id FROM {forum_posts})',
             ['courseid' => (int) $event->courseid]
         );
+        self::sweep_orphaned_hidden();
     }
 }

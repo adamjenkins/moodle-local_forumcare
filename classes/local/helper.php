@@ -209,6 +209,19 @@ class helper {
     }
 
     /**
+     * Whether any report references the given reason. Used to prevent a reason
+     * from being hard-deleted while reports still point at it, which would drop
+     * those reports from the review queue's inner join to the reason table.
+     *
+     * @param int $reasonid
+     * @return bool
+     */
+    public static function reason_has_reports(int $reasonid): bool {
+        global $DB;
+        return $DB->record_exists('local_forumcare_report', ['reasonid' => $reasonid]);
+    }
+
+    /**
      * Count open (status=pending) reports filed against a single post.
      *
      * @param int $postid
@@ -220,7 +233,10 @@ class helper {
     }
 
     /**
-     * Count open reports filed against a user's posts within a single course.
+     * Count the distinct reporters who have open reports against a user's posts
+     * within a single course. Counting reporters (not raw reports) means the
+     * suspend threshold reflects how many different people complained, so one
+     * person reporting many of the author's posts cannot reach it alone.
      *
      * @param int $userid The post author (reportee).
      * @param int $courseid
@@ -228,7 +244,7 @@ class helper {
      */
     public static function count_open_reports_against_user_in_course(int $userid, int $courseid): int {
         global $DB;
-        $sql = "SELECT COUNT(r.id)
+        $sql = "SELECT COUNT(DISTINCT r.reporterid)
                   FROM {local_forumcare_report} r
                   JOIN {forum_posts} p ON p.id = r.postid
                  WHERE p.userid = :userid AND r.courseid = :courseid AND r.status = :status";
@@ -240,14 +256,16 @@ class helper {
     }
 
     /**
-     * Count open reports filed against a user's posts across the whole site.
+     * Count the distinct reporters who have open reports against a user's posts
+     * across the whole site. As with the per-course counter, counting reporters
+     * rather than reports stops a single person from reaching the threshold alone.
      *
      * @param int $userid The post author (reportee).
      * @return int
      */
     public static function count_open_reports_against_user_sitewide(int $userid): int {
         global $DB;
-        $sql = "SELECT COUNT(r.id)
+        $sql = "SELECT COUNT(DISTINCT r.reporterid)
                   FROM {local_forumcare_report} r
                   JOIN {forum_posts} p ON p.id = r.postid
                  WHERE p.userid = :userid AND r.status = :status";
@@ -498,9 +516,12 @@ class helper {
      * @return void
      */
     public static function suspend_sitewide(int $userid, int $actorid, bool $automatic): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/user/lib.php');
+
         $user = \core_user::get_user($userid, '*', MUST_EXIST);
         $user->suspended = 1;
-        \core_user::update_user($user, false);
+        user_update_user($user, false, false);
 
         $event = \local_forumcare\event\user_suspended::create([
             'context' => \context_system::instance(),

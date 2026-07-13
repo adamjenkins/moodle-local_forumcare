@@ -62,6 +62,18 @@ $scopeconditions = $iscoursescope ? ['courseid' => $courseid] : ['courseid' => n
 if ($delete) {
     require_sesskey();
     $reason = $DB->get_record('local_forumcare_reason', array_merge(['id' => $delete], $scopeconditions), '*', MUST_EXIST);
+    // Refuse to hard-delete a reason still referenced by reports: the review
+    // queue inner-joins the reason table, so deleting it would silently drop
+    // those reports (including pending ones) from the queue. Disabling the
+    // reason via its "enabled" flag is the intended way to retire it.
+    if (helper::reason_has_reports($delete)) {
+        redirect(
+            $baseurl,
+            get_string('errorreasoninuse', 'local_forumcare', $reason->name),
+            null,
+            \core\output\notification::NOTIFY_ERROR
+        );
+    }
     if (!$confirm) {
         echo $OUTPUT->header();
         echo $OUTPUT->confirm(

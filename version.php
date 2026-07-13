@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_forumcare';
-$plugin->version   = 2026062503;
+$plugin->version   = 2026071300;
 $plugin->requires  = 2024100700;
 $plugin->supported = [500, 502];
-$plugin->release   = '1.1.0';
+$plugin->release   = '1.1.1';
 $plugin->maturity  = MATURITY_BETA;

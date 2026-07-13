@@ -106,6 +106,106 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     /**
+     * Create a post by the given author, hidden by the given moderator, and
+     * return the post record. Leaves a local_forumcare_hidden backup row.
+     *
+     * @param \stdClass $author
+     * @param int $hiddenby
+     * @return \stdClass
+     */
+    private function create_hidden_post(\stdClass $author, int $hiddenby): \stdClass {
+        global $DB;
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $discussion = $forumgenerator->create_discussion([
+            'course' => $this->course->id,
+            'forum' => $this->forum->id,
+            'userid' => $author->id,
+        ]);
+        $post = $DB->get_record('forum_posts', ['discussion' => $discussion->id], '*', MUST_EXIST);
+        helper::hide_post((int) $post->id, $hiddenby, false);
+        return $post;
+    }
+
+    /**
+     * A moderator who hid a post has that involvement discoverable and exported.
+     */
+    public function test_export_includes_moderator_hidden_action(): void {
+        $author = $this->getDataGenerator()->create_user();
+        $moderator = $this->getDataGenerator()->create_user();
+        $post = $this->create_hidden_post($author, (int) $moderator->id);
+
+        $contextlist = provider::get_contexts_for_userid($moderator->id);
+        $this->assertCount(1, $contextlist->get_contexts());
+
+        $cm = get_coursemodule_from_instance('forum', $this->forum->id, $this->course->id);
+        $modcontext = \context_module::instance($cm->id);
+
+        $approvedcontextlist = new approved_contextlist($moderator, 'local_forumcare', [$modcontext->id]);
+        provider::export_user_data($approvedcontextlist);
+
+        $exportdata = writer::with_context($modcontext)->get_data([get_string('pluginname', 'local_forumcare')]);
+        $this->assertNotEmpty($exportdata->hiddenposts);
+        $this->assertCount(1, $exportdata->hiddenposts);
+    }
+
+    /**
+     * The author of a hidden post gets their original content back in an export,
+     * since the live post now shows only a placeholder.
+     */
+    public function test_export_includes_author_original_content(): void {
+        $author = $this->getDataGenerator()->create_user();
+        $moderator = $this->getDataGenerator()->create_user();
+        $post = $this->create_hidden_post($author, (int) $moderator->id);
+
+        $cm = get_coursemodule_from_instance('forum', $this->forum->id, $this->course->id);
+        $modcontext = \context_module::instance($cm->id);
+
+        $approvedcontextlist = new approved_contextlist($author, 'local_forumcare', [$modcontext->id]);
+        provider::export_user_data($approvedcontextlist);
+
+        $exportdata = writer::with_context($modcontext)->get_data([get_string('pluginname', 'local_forumcare')]);
+        $this->assertNotEmpty($exportdata->hiddenposts);
+        $this->assertStringContainsString($post->message, $exportdata->hiddenposts[0]['originalmessage']);
+    }
+
+    /**
+     * Deleting a moderator's data anonymises the hiddenby id on their hidden-post backups.
+     */
+    public function test_delete_data_for_user_anonymises_hiddenby(): void {
+        global $DB;
+
+        $author = $this->getDataGenerator()->create_user();
+        $moderator = $this->getDataGenerator()->create_user();
+        $post = $this->create_hidden_post($author, (int) $moderator->id);
+
+        $cm = get_coursemodule_from_instance('forum', $this->forum->id, $this->course->id);
+        $modcontext = \context_module::instance($cm->id);
+
+        $approvedcontextlist = new approved_contextlist($moderator, 'local_forumcare', [$modcontext->id]);
+        provider::delete_data_for_user($approvedcontextlist);
+
+        $this->assertEquals(0, $DB->get_field('local_forumcare_hidden', 'hiddenby', ['postid' => $post->id]));
+    }
+
+    /**
+     * Deleting all data in a forum context also removes its hidden-post backups.
+     */
+    public function test_delete_data_for_all_users_removes_hidden(): void {
+        global $DB;
+
+        $author = $this->getDataGenerator()->create_user();
+        $moderator = $this->getDataGenerator()->create_user();
+        $post = $this->create_hidden_post($author, (int) $moderator->id);
+
+        $cm = get_coursemodule_from_instance('forum', $this->forum->id, $this->course->id);
+        $modcontext = \context_module::instance($cm->id);
+
+        provider::delete_data_for_all_users_in_context($modcontext);
+
+        $this->assertFalse($DB->record_exists('local_forumcare_hidden', ['postid' => $post->id]));
+    }
+
+    /**
      * Deleting a user's data anonymises their reporterid rather than removing the row.
      */
     public function test_delete_data_for_user_anonymises_reporter(): void {

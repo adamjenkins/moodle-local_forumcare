@@ -73,6 +73,12 @@ class submit_report extends external_api {
             throw new \moodle_exception('errorforumcaredisabled', 'local_forumcare');
         }
 
+        // A user cannot report their own post. The reporting UI already hides the
+        // link on own posts; this enforces the same rule against direct calls.
+        if ((int) $post->userid === (int) $USER->id) {
+            throw new \moodle_exception('errorcannotreportownpost', 'local_forumcare');
+        }
+
         $validreasonids = array_map('intval', array_column(helper::get_reasons_for_course($discussion->course), 'id'));
         if (!in_array($params['reasonid'], $validreasonids, true)) {
             throw new \moodle_exception('errorreasonrequired', 'local_forumcare');
