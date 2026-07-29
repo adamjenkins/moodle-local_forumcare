@@ -1,0 +1,23 @@
+# camp listing manifest — descriptive content for your plugin's page.
+# Edit freely and commit; camp ingests this file at each tagged release.
+# Schema: https://camp-registry.org/schema/listing.schema.json
+name: local_forumcare
+summary: A Moodle local plugin that lets students report problematic posts in `mod_forum` forums, with configurable auto-moderation (hide posts, suspend users) and a teacher review queue.
+description: |
+  Students report problematic posts via a link injected into every forum
+  post's action menu, choosing from configurable report reasons (site-wide or
+  per-course). Thresholds can auto-hide a post after N open reports and
+  auto-suspend repeat offenders — counting distinct reporters, so one person
+  cannot trigger it alone — with a teacher review queue behind it. Reporting is
+  opt-in per forum, under a site-wide master switch.
+labels:
+  # Required disclosure labels — pick all that apply (RFC §4.7):
+  #   fully-free | freemium | paid-service | external-account
+  #   donation-supported | commercial-support-available
+  - fully-free
+# screenshots:
+#   - path: .camp/screenshots/overview.png
+#     caption: Main view
+# links:
+#   docs: https://…
+#   issues: https://…
