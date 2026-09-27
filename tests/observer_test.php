@@ -36,6 +36,23 @@ final class observer_test extends \advanced_testcase {
     }
 
     /**
+     * Delete a course module synchronously on every supported Moodle version.
+     *
+     * course_delete_module() is deprecated since 5.2 and emits a debugging() deprecation notice
+     * (reported as "Unexpected debugging() call" on 5.3); its replacement cmactions::delete()
+     * does not exist before 5.2.
+     *
+     * @param \stdClass|\cm_info $cm
+     */
+    protected function delete_cm($cm): void {
+        if (method_exists(\core_courseformat\local\cmactions::class, 'delete')) {
+            \core_courseformat\formatactions::cm($cm->course)->delete($cm->id);
+        } else {
+            course_delete_module($cm->id);
+        }
+    }
+
+    /**
      * Create a course with a forum, a post by a student, and a report against it.
      *
      * @return array [course, forum record, cm, post id, report id]
@@ -94,7 +111,7 @@ final class observer_test extends \advanced_testcase {
         $this->assertTrue($DB->record_exists('local_forumcare_forum', ['forumid' => $forum->id]));
         $this->assertTrue($DB->record_exists('local_forumcare_report', ['forumid' => $forum->id]));
 
-        course_delete_module($cm->id);
+        $this->delete_cm($cm);
 
         $this->assertFalse($DB->record_exists('local_forumcare_forum', ['forumid' => $forum->id]));
         $this->assertFalse($DB->record_exists('local_forumcare_report', ['forumid' => $forum->id]));
@@ -110,7 +127,7 @@ final class observer_test extends \advanced_testcase {
         helper::hide_post($postid, 0, true);
         $this->assertTrue($DB->record_exists('local_forumcare_hidden', ['postid' => $postid]));
 
-        course_delete_module($cm->id);
+        $this->delete_cm($cm);
 
         $this->assertFalse($DB->record_exists('local_forumcare_hidden', ['postid' => $postid]));
     }

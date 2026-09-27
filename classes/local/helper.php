@@ -521,7 +521,12 @@ class helper {
 
         $user = \core_user::get_user($userid, '*', MUST_EXIST);
         $user->suspended = 1;
-        user_update_user($user, false, false);
+        if (method_exists(\core\user::class, 'update_user')) {
+            // Moodle 5.3+: user_update_user() is deprecated (MDL-82650).
+            \core\user::update_user($user, false, false);
+        } else {
+            user_update_user($user, false, false);
+        }
 
         $event = \local_forumcare\event\user_suspended::create([
             'context' => \context_system::instance(),

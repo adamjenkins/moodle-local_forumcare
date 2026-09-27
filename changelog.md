@@ -4,6 +4,20 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Changed
+
+- Declare Moodle 5.3 support.
+- Site-wide suspension now uses `\core\user::update_user()` on Moodle 5.3+,
+  where `user_update_user()` is deprecated; older versions keep using
+  `user_update_user()`.
+
+### Fixed
+
+- Activity settings form callbacks no longer raise an "Undefined property
+  $modulename" warning for other activities' forms built without it.
+
 ## [1.1.2] - 2026-08-04
 
 ### Added

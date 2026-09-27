@@ -23,6 +23,27 @@
  */
 
 /**
+ * Whether the given activity settings form is mod_forum's own form.
+ *
+ * The coursemodule_* form callbacks run for every activity's settings form,
+ * and the form's current data is whatever the caller passed to the
+ * constructor: modedit.php always sets modulename, but other callers (other
+ * plugins' tests, custom scripts) may not. So never assume the property
+ * exists; also accept the forum's own form class, which moodleform_mod
+ * requires to be named mod_<modname>_mod_form.
+ *
+ * @param \moodleform_mod $formwrapper
+ * @return bool
+ */
+function local_forumcare_is_forum_form($formwrapper): bool {
+    if ($formwrapper instanceof \mod_forum_mod_form) {
+        return true;
+    }
+    $current = $formwrapper->get_current();
+    return is_object($current) && ($current->modulename ?? '') === 'forum';
+}
+
+/**
  * Add a "Forum care" section to the forum's own activity settings
  * (edit-settings) form. Real generic hook dispatched by
  * moodleform_mod::definition() via get_plugins_with_function(), callable
@@ -33,7 +54,7 @@
  * @return void
  */
 function local_forumcare_coursemodule_standard_elements($formwrapper, $mform) {
-    if ($formwrapper->get_current()->modulename !== 'forum') {
+    if (!local_forumcare_is_forum_form($formwrapper)) {
         return;
     }
 
@@ -72,7 +93,7 @@ function local_forumcare_coursemodule_standard_elements($formwrapper, $mform) {
  * @return void
  */
 function local_forumcare_coursemodule_definition_after_data($formwrapper, $mform) {
-    if ($formwrapper->get_current()->modulename !== 'forum') {
+    if (!local_forumcare_is_forum_form($formwrapper)) {
         return;
     }
 
@@ -102,7 +123,7 @@ function local_forumcare_coursemodule_definition_after_data($formwrapper, $mform
  * @return \stdClass
  */
 function local_forumcare_coursemodule_edit_post_actions($moduleinfo, $course) {
-    if ($moduleinfo->modulename !== 'forum') {
+    if (($moduleinfo->modulename ?? '') !== 'forum') {
         return $moduleinfo;
     }
 
