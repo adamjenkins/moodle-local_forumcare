@@ -14,7 +14,7 @@
         "source": "https://github.com/adamjenkins/moodle-local_forumcare"
     },
     "require": {
-        "moodle/moodle": ">=5.0",
+        "moodle/moodle": "^5.0",
         "moodle/composer-installer": "*"
     }
 }
