@@ -70,10 +70,17 @@ class restore_local_forumcare_plugin extends restore_local_plugin {
             return;
         }
 
-        $data = $this->pendingsettings;
+        // The .mbz is untrusted input: build the row from only the known fields,
+        // cleaned the way the forum settings form cleans them.
+        $source = $this->pendingsettings;
+        $data = new \stdClass();
         $data->forumid = (int) $this->task->get_activityid();
+        $data->enabled = empty($source->enabled) ? 0 : 1;
+        foreach (['threshold_hide', 'threshold_suspend', 'threshold_frivolous'] as $name) {
+            $value = $source->$name ?? null;
+            $data->$name = ($value === null || $value === '') ? null : max(0, clean_param($value, PARAM_INT));
+        }
         $data->timemodified = time();
-        unset($data->id);
 
         if ($existing = $DB->get_record('local_forumcare_forum', ['forumid' => $data->forumid])) {
             $data->id = $existing->id;

@@ -60,7 +60,12 @@ class submit_report extends external_api {
             'comment' => $comment,
         ]);
 
-        $post = $DB->get_record('forum_posts', ['id' => $params['postid']], '*', MUST_EXIST);
+        // A missing post and a post the user cannot see give the same error,
+        // so this endpoint does not reveal which post ids exist.
+        $post = $DB->get_record('forum_posts', ['id' => $params['postid']]);
+        if (!$post) {
+            throw new \moodle_exception('errorpostnotavailable', 'local_forumcare');
+        }
         $discussion = $DB->get_record('forum_discussions', ['id' => $post->discussion], '*', MUST_EXIST);
         $forum = $DB->get_record('forum', ['id' => $discussion->forum], '*', MUST_EXIST);
         $cm = get_coursemodule_from_instance('forum', $forum->id, $discussion->course, false, MUST_EXIST);
@@ -68,6 +73,12 @@ class submit_report extends external_api {
 
         self::validate_context($context);
         require_capability('local/forumcare:report', $context);
+
+        // Only posts the user can actually see may be reported: not a post in
+        // another separate group, a private reply to someone else, or a deleted post.
+        if (!helper::user_can_see_post($post, $discussion, $forum, $cm, $USER)) {
+            throw new \moodle_exception('errorpostnotavailable', 'local_forumcare');
+        }
 
         if (!helper::can_report_in_forum($forum->id)) {
             throw new \moodle_exception('errorforumcaredisabled', 'local_forumcare');
@@ -132,6 +143,12 @@ class submit_report extends external_api {
         $hidethreshold = helper::get_threshold($discussion->forum, 'threshold_hide');
         if ($hidethreshold > 0 && helper::count_open_reports_for_post($post->id) >= $hidethreshold) {
             helper::hide_post($post->id, 0, true);
+        }
+
+        // Course moderators and site admins are never suspension targets, so
+        // reporters cannot use the thresholds to lock out the people reviewing them.
+        if (helper::is_protected_from_suspension((int) $post->userid, (int) $discussion->course)) {
+            return;
         }
 
         $coursesuspendthreshold = helper::get_threshold($discussion->forum, 'threshold_suspend');

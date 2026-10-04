@@ -194,4 +194,84 @@ final class observer_test extends \advanced_testcase {
         $this->assertFalse($DB->record_exists('local_forumcare_report', ['id' => $reportid]));
         $this->assertTrue($DB->record_exists('local_forumcare_report', ['id' => $otherreportid]));
     }
+
+    /**
+     * Save a new message on a post the way mod_forum's own edit does: update the
+     * row, then fire \mod_forum\event\post_updated.
+     *
+     * @param int $postid
+     * @param string $message
+     */
+    protected function author_edits_post(int $postid, string $message): void {
+        global $DB, $CFG;
+        require_once($CFG->dirroot . '/mod/forum/lib.php');
+
+        $DB->update_record('forum_posts', (object) [
+            'id' => $postid,
+            'message' => $message,
+            'messageformat' => FORMAT_HTML,
+            'modified' => time(),
+        ]);
+        $post = $DB->get_record('forum_posts', ['id' => $postid], '*', MUST_EXIST);
+        $discussion = $DB->get_record('forum_discussions', ['id' => $post->discussion], '*', MUST_EXIST);
+        $forum = $DB->get_record('forum', ['id' => $discussion->forum], '*', MUST_EXIST);
+        $cm = get_coursemodule_from_instance('forum', $forum->id, $forum->course, false, MUST_EXIST);
+        forum_trigger_post_updated_event($post, $discussion, \context_module::instance($cm->id), $forum);
+    }
+
+    /**
+     * An author who edits a hidden post cannot undo the hide: the post is
+     * re-hidden and the new text becomes the content restored by "Mark as OK".
+     */
+    public function test_author_edit_of_hidden_post_is_rehidden(): void {
+        global $DB;
+
+        [, , , $postid, $reportid] = $this->create_reported_post();
+        helper::hide_post($postid, 0, true);
+
+        $this->author_edits_post($postid, '<p>Offending text pasted back</p>');
+
+        $live = $DB->get_field('forum_posts', 'message', ['id' => $postid]);
+        $this->assertStringContainsString(get_string('hiddenpostplaceholder', 'local_forumcare'), $live);
+        $this->assertStringNotContainsString('Offending text', $live);
+        $backup = $DB->get_record('local_forumcare_hidden', ['postid' => $postid], '*', MUST_EXIST);
+        $this->assertEquals('<p>Offending text pasted back</p>', $backup->originalmessage);
+
+        // The "Mark as OK" action restores the author's latest text, not the stale original.
+        helper::apply_moderation($reportid, 'ok', (int) get_admin()->id);
+        $this->assertEquals('<p>Offending text pasted back</p>', $DB->get_field('forum_posts', 'message', ['id' => $postid]));
+    }
+
+    /**
+     * Saving a hidden post without changing the placeholder (e.g. a subject-only
+     * edit) must not overwrite the backed-up original with the placeholder.
+     */
+    public function test_edit_keeping_placeholder_preserves_backup(): void {
+        global $DB;
+
+        [, , , $postid, ] = $this->create_reported_post();
+        $original = $DB->get_field('forum_posts', 'message', ['id' => $postid]);
+        helper::hide_post($postid, 0, true);
+        $placeholder = $DB->get_field('forum_posts', 'message', ['id' => $postid]);
+
+        // An editor round trip may reformat the placeholder markup slightly.
+        $this->author_edits_post($postid, "<div class=\"alert alert-info\">\n" .
+            get_string('hiddenpostplaceholder', 'local_forumcare') . "\n</div>");
+
+        $this->assertEquals($original, $DB->get_field('local_forumcare_hidden', 'originalmessage', ['postid' => $postid]));
+        $this->assertEquals($placeholder, $DB->get_field('forum_posts', 'message', ['id' => $postid]));
+    }
+
+    /**
+     * Editing a post that is not hidden is left alone.
+     */
+    public function test_edit_of_visible_post_untouched(): void {
+        global $DB;
+
+        [, , , $postid, ] = $this->create_reported_post();
+        $this->author_edits_post($postid, '<p>Fixed a typo</p>');
+
+        $this->assertEquals('<p>Fixed a typo</p>', $DB->get_field('forum_posts', 'message', ['id' => $postid]));
+        $this->assertFalse($DB->record_exists('local_forumcare_hidden', ['postid' => $postid]));
+    }
 }

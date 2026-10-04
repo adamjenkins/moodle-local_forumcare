@@ -37,4 +37,8 @@ $observers = [
         'eventname' => '\core\event\course_reset_ended',
         'callback' => '\local_forumcare\local\observer::course_reset_ended',
     ],
+    [
+        'eventname' => '\mod_forum\event\post_updated',
+        'callback' => '\local_forumcare\local\observer::post_updated',
+    ],
 ];

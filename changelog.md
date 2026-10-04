@@ -4,6 +4,35 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Changed
+
+- Requires Moodle 5.0 or later (`$plugin->requires` raised to match the
+  supported range; it previously allowed 4.5, which was never supported).
+- Course moderators (anyone with `local/forumcare:reviewreports` or
+  `moodle/course:update` in the course), holders of
+  `local/forumcare:suspendsitewide` and site admins are never suspended by the
+  automatic thresholds or the manual suspend actions; the review queue no longer
+  offers suspend buttons for them.
+
+### Fixed
+
+- Privacy: erasing a post author now deletes the backup of their hidden post's
+  original content, and "Mark as OK" never writes content back into a post that
+  core has deleted or erased.
+- Privacy: the provider now implements `core_userlist_provider`
+  (`get_users_in_context()`, `delete_data_for_users()`), so per-user deletions
+  within a forum reach this plugin's data.
+- Privacy: erasing a reporter also blanks their free-text report comment.
+- Reporting checks that the reporter can see the post (separate groups, private
+  replies, deleted posts); a missing or unviewable post gives the same error.
+  The report-status service skips such posts too.
+- An author who edits a hidden post can no longer undo the hide: the post is
+  re-hidden and the edited text becomes the content "Mark as OK" restores.
+- Restoring a forum cleans the backed-up forum care settings instead of writing
+  them verbatim.
+
 ## [1.1.3] - 2026-10-03
 
 ### Changed

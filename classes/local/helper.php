@@ -364,6 +364,13 @@ class helper {
             return;
         }
 
+        // Core has deleted (or privacy-erased) the post: its content must not
+        // come back, so drop the backup instead of writing it into the post.
+        if ($DB->get_field('forum_posts', 'deleted', ['id' => $postid])) {
+            $DB->delete_records('local_forumcare_hidden', ['postid' => $postid]);
+            return;
+        }
+
         $update = new \stdClass();
         $update->id = $postid;
         $update->message = $backup->originalmessage;
@@ -372,6 +379,107 @@ class helper {
         $DB->update_record('forum_posts', $update);
 
         $DB->delete_records('local_forumcare_hidden', ['postid' => $postid]);
+    }
+
+    /**
+     * Whether a saved post message is (an editor round trip of) one of this
+     * plugin's hidden-post placeholders, in the current or the English language.
+     *
+     * @param string $message
+     * @return bool
+     */
+    protected static function is_placeholder_message(string $message): bool {
+        $text = trim(preg_replace('/\s+/u', ' ', html_to_text($message, 0, false)));
+        $manager = get_string_manager();
+        foreach ([self::HIDDEN_PLACEHOLDER_LANGKEY, self::HIDDEN_PLACEHOLDER_MANUAL_LANGKEY] as $key) {
+            if (
+                $text === trim(get_string($key, 'local_forumcare'))
+                    || $text === trim($manager->get_string($key, 'local_forumcare', null, 'en'))
+            ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Keep a hidden post hidden after its content was edited through mod_forum.
+     *
+     * The author (inside the edit window) or anyone with mod/forum:editanypost
+     * can save over the placeholder. The newly saved text becomes the backed-up
+     * original, so "Mark as OK" later restores the latest version rather than a
+     * stale one, and the placeholder is put back on the live post.
+     *
+     * @param int $postid
+     * @return void
+     */
+    public static function rehide_edited_post(int $postid): void {
+        global $DB;
+
+        $backup = $DB->get_record('local_forumcare_hidden', ['postid' => $postid]);
+        if (!$backup) {
+            return;
+        }
+        $post = $DB->get_record('forum_posts', ['id' => $postid]);
+        if (!$post || !empty($post->deleted)) {
+            return;
+        }
+
+        if (!self::is_placeholder_message((string) $post->message)) {
+            $backup->originalmessage = $post->message;
+            $backup->originalmessageformat = $post->messageformat;
+            $backup->originalmessagetrust = $post->messagetrust;
+            $DB->update_record('local_forumcare_hidden', $backup);
+        }
+
+        $langkey = empty($backup->hiddenby) ? self::HIDDEN_PLACEHOLDER_LANGKEY : self::HIDDEN_PLACEHOLDER_MANUAL_LANGKEY;
+        $DB->update_record('forum_posts', (object) [
+            'id' => $postid,
+            'message' => \html_writer::div(get_string($langkey, 'local_forumcare'), 'alert alert-info'),
+            'messageformat' => FORMAT_HTML,
+            'messagetrust' => 0,
+        ]);
+    }
+
+    /**
+     * Whether a user can see a forum post, using mod_forum's own rules (groups,
+     * private replies, deleted posts, timed discussions).
+     *
+     * @param \stdClass $post forum_posts record
+     * @param \stdClass $discussion forum_discussions record
+     * @param \stdClass $forum forum record
+     * @param \stdClass|\cm_info $cm
+     * @param \stdClass $user
+     * @return bool
+     */
+    public static function user_can_see_post(\stdClass $post, \stdClass $discussion, \stdClass $forum, $cm, \stdClass $user): bool {
+        global $CFG;
+        require_once($CFG->dirroot . '/mod/forum/lib.php');
+
+        if (!empty($post->deleted)) {
+            return false;
+        }
+        return (bool) forum_user_can_see_post($forum, $discussion, $post, $user, $cm);
+    }
+
+    /**
+     * Whether a user must never be suspended by this plugin in a course: site
+     * admins, and anyone who moderates the course (reviews reports or can edit
+     * the course). This stops students using the thresholds, or a non-editing
+     * teacher using the manual action, to lock out a higher role.
+     *
+     * @param int $userid
+     * @param int $courseid
+     * @return bool
+     */
+    public static function is_protected_from_suspension(int $userid, int $courseid): bool {
+        if (is_siteadmin($userid)) {
+            return true;
+        }
+        $coursecontext = \context_course::instance($courseid);
+        return has_capability('local/forumcare:reviewreports', $coursecontext, $userid)
+            || has_capability('moodle/course:update', $coursecontext, $userid)
+            || has_capability('local/forumcare:suspendsitewide', \context_system::instance(), $userid);
     }
 
     /**
@@ -437,6 +545,13 @@ class helper {
 
         $report = $DB->get_record('local_forumcare_report', ['id' => $reportid], '*', MUST_EXIST);
         $post = $DB->get_record('forum_posts', ['id' => $report->postid], '*', MUST_EXIST);
+
+        if (
+            ($action === 'suspend_course' || $action === 'suspend_site')
+                && self::is_protected_from_suspension((int) $post->userid, (int) $report->courseid)
+        ) {
+            throw new \moodle_exception('errorcannotsuspendprivileged', 'local_forumcare');
+        }
 
         switch ($action) {
             case 'ok':

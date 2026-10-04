@@ -240,6 +240,206 @@ final class submit_report_test extends \advanced_testcase {
     }
 
     /**
+     * Have two distinct students each report a different post by the author,
+     * which reaches the course-suspend threshold of 2 set in setUp.
+     *
+     * @param \stdClass $author
+     */
+    private function report_author_twice(\stdClass $author): void {
+        for ($i = 0; $i < 2; $i++) {
+            $post = $this->create_post($author);
+            $reporter = $this->getDataGenerator()->create_user();
+            $this->getDataGenerator()->enrol_user($reporter->id, $this->course->id, 'student');
+            $this->setUser($reporter);
+            submit_report::execute($post->id, $this->reasonid, '');
+        }
+    }
+
+    /**
+     * Status of the user's enrolment in the test course.
+     *
+     * @param int $userid
+     * @return int
+     */
+    private function enrolment_status(int $userid): int {
+        global $DB;
+        return (int) $DB->get_field_sql(
+            "SELECT ue.status FROM {user_enrolments} ue
+               JOIN {enrol} e ON e.id = ue.enrolid
+              WHERE e.courseid = :courseid AND ue.userid = :userid",
+            ['courseid' => $this->course->id, 'userid' => $userid]
+        );
+    }
+
+    /**
+     * Students reaching the suspend threshold against a teacher's posts must not
+     * suspend the teacher's enrolment: moderators are not suspension targets.
+     */
+    public function test_teacher_author_not_auto_suspended(): void {
+        $teacher = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($teacher->id, $this->course->id, 'editingteacher');
+
+        $this->report_author_twice($teacher);
+
+        $this->assertEquals(ENROL_USER_ACTIVE, $this->enrolment_status((int) $teacher->id));
+    }
+
+    /**
+     * A non-editing teacher (holds reviewreports) is protected from automatic suspension too.
+     */
+    public function test_noneditingteacher_author_not_auto_suspended(): void {
+        $teacher = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($teacher->id, $this->course->id, 'teacher');
+
+        $this->report_author_twice($teacher);
+
+        $this->assertEquals(ENROL_USER_ACTIVE, $this->enrolment_status((int) $teacher->id));
+    }
+
+    /**
+     * Automatic site-wide suspension never suspends a site administrator.
+     */
+    public function test_siteadmin_author_not_auto_suspended_sitewide(): void {
+        global $DB;
+        set_config('threshold_suspend', 0, 'local_forumcare');
+        set_config('threshold_suspend_sitewide', 2, 'local_forumcare');
+
+        $admin = get_admin();
+        $this->report_author_twice($admin);
+
+        $this->assertEquals(0, $DB->get_field('user', 'suspended', ['id' => $admin->id]));
+    }
+
+    /**
+     * A student author still is auto-suspended site-wide (the guard is not a blanket skip).
+     */
+    public function test_student_author_auto_suspended_sitewide(): void {
+        global $DB;
+        set_config('threshold_suspend', 0, 'local_forumcare');
+        set_config('threshold_suspend_sitewide', 2, 'local_forumcare');
+
+        $author = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($author->id, $this->course->id, 'student');
+        $this->report_author_twice($author);
+
+        $this->assertEquals(1, $DB->get_field('user', 'suspended', ['id' => $author->id]));
+    }
+
+    /**
+     * In a separate-groups forum, a student cannot report a post in a group they are not in.
+     */
+    public function test_cannot_report_post_in_other_separate_group(): void {
+        global $DB;
+
+        $forum = $this->getDataGenerator()->create_module('forum', [
+            'course' => $this->course->id,
+            'groupmode' => SEPARATEGROUPS,
+        ]);
+        helper::set_forum_enabled($forum->id, true);
+        $groupa = $this->getDataGenerator()->create_group(['courseid' => $this->course->id]);
+        $groupb = $this->getDataGenerator()->create_group(['courseid' => $this->course->id]);
+
+        $author = $this->getDataGenerator()->create_user();
+        $reporter = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($author->id, $this->course->id, 'student');
+        $this->getDataGenerator()->enrol_user($reporter->id, $this->course->id, 'student');
+        $this->getDataGenerator()->create_group_member(['groupid' => $groupb->id, 'userid' => $author->id]);
+        $this->getDataGenerator()->create_group_member(['groupid' => $groupa->id, 'userid' => $reporter->id]);
+
+        $discussion = $this->getDataGenerator()->get_plugin_generator('mod_forum')->create_discussion([
+            'course' => $this->course->id,
+            'forum' => $forum->id,
+            'userid' => $author->id,
+            'groupid' => $groupb->id,
+        ]);
+        $post = $DB->get_record('forum_posts', ['discussion' => $discussion->id], '*', MUST_EXIST);
+
+        $this->setUser($reporter);
+        try {
+            submit_report::execute($post->id, $this->reasonid, '');
+            $this->fail('Reporting a post in another separate group must be refused');
+        } catch (\moodle_exception $e) {
+            $this->assertEquals('errorpostnotavailable', $e->errorcode);
+        }
+        $this->assertFalse($DB->record_exists('local_forumcare_report', ['postid' => $post->id]));
+    }
+
+    /**
+     * A student cannot report a private reply addressed to someone else.
+     */
+    public function test_cannot_report_private_reply_to_someone_else(): void {
+        global $DB;
+
+        $student = $this->getDataGenerator()->create_user();
+        $teacher = $this->getDataGenerator()->create_user();
+        $reporter = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($student->id, $this->course->id, 'student');
+        $this->getDataGenerator()->enrol_user($teacher->id, $this->course->id, 'editingteacher');
+        $this->getDataGenerator()->enrol_user($reporter->id, $this->course->id, 'student');
+
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $discussion = $forumgenerator->create_discussion([
+            'course' => $this->course->id,
+            'forum' => $this->forum->id,
+            'userid' => $student->id,
+        ]);
+        $reply = $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $discussion->firstpost,
+            'userid' => $teacher->id,
+            'privatereplyto' => $student->id,
+        ]);
+
+        $this->setUser($reporter);
+        try {
+            submit_report::execute($reply->id, $this->reasonid, '');
+            $this->fail('Reporting a private reply to someone else must be refused');
+        } catch (\moodle_exception $e) {
+            $this->assertEquals('errorpostnotavailable', $e->errorcode);
+        }
+        $this->assertFalse($DB->record_exists('local_forumcare_report', ['postid' => $reply->id]));
+    }
+
+    /**
+     * A post core has marked deleted cannot be reported.
+     */
+    public function test_cannot_report_deleted_post(): void {
+        global $DB;
+
+        $author = $this->getDataGenerator()->create_user();
+        $reporter = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($author->id, $this->course->id, 'student');
+        $this->getDataGenerator()->enrol_user($reporter->id, $this->course->id, 'student');
+        $post = $this->create_post($author);
+        $DB->set_field('forum_posts', 'deleted', 1, ['id' => $post->id]);
+
+        $this->setUser($reporter);
+        try {
+            submit_report::execute($post->id, $this->reasonid, '');
+            $this->fail('Reporting a deleted post must be refused');
+        } catch (\moodle_exception $e) {
+            $this->assertEquals('errorpostnotavailable', $e->errorcode);
+        }
+    }
+
+    /**
+     * A post id that does not exist gives the same error as an invisible post,
+     * so the endpoint does not reveal which ids exist.
+     */
+    public function test_nonexistent_post_same_error(): void {
+        $reporter = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($reporter->id, $this->course->id, 'student');
+
+        $this->setUser($reporter);
+        try {
+            submit_report::execute(999999999, $this->reasonid, '');
+            $this->fail('Reporting a missing post must be refused');
+        } catch (\moodle_exception $e) {
+            $this->assertEquals('errorpostnotavailable', $e->errorcode);
+        }
+    }
+
+    /**
      * A user cannot report their own post (enforced server-side, not just in the UI).
      */
     public function test_cannot_report_own_post(): void {

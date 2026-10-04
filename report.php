@@ -57,7 +57,14 @@ if ($moderate !== '' && $reportid) {
     if (in_array($moderate, helper::VALID_MODERATION_ACTIONS, true)) {
         $report = $DB->get_record('local_forumcare_report', ['id' => $reportid], '*', MUST_EXIST);
         if ((int) $report->courseid === $courseid) {
-            helper::apply_moderation($reportid, $moderate, $USER->id);
+            try {
+                helper::apply_moderation($reportid, $moderate, $USER->id);
+            } catch (moodle_exception $e) {
+                if ($e->errorcode !== 'errorcannotsuspendprivileged') {
+                    throw $e;
+                }
+                redirect($baseurl, $e->getMessage(), null, \core\output\notification::NOTIFY_ERROR);
+            }
         }
     }
 

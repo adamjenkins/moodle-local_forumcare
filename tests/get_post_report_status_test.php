@@ -102,4 +102,44 @@ final class get_post_report_status_test extends \advanced_testcase {
         $this->assertFalse($byid[$otherpost->id]['isown']);
         $this->assertTrue($byid[$otherpost->id]['reported']);
     }
+
+    /**
+     * Posts the viewer cannot see (a private reply to someone else, a deleted
+     * post) are omitted, matching submit_report's visibility rule.
+     */
+    public function test_invisible_posts_omitted(): void {
+        global $DB;
+
+        $course = $this->getDataGenerator()->create_course();
+        $forum = $this->getDataGenerator()->create_module('forum', ['course' => $course->id]);
+        helper::set_forum_enabled($forum->id, true);
+
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $viewer = $this->getDataGenerator()->create_and_enrol($course, 'student');
+
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $discussion = $forumgenerator->create_discussion([
+            'course' => $course->id,
+            'forum' => $forum->id,
+            'userid' => $student->id,
+        ]);
+        $private = $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $discussion->firstpost,
+            'userid' => $teacher->id,
+            'privatereplyto' => $student->id,
+        ]);
+        $deleted = $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $discussion->firstpost,
+            'userid' => $teacher->id,
+        ]);
+        $DB->set_field('forum_posts', 'deleted', 1, ['id' => $deleted->id]);
+
+        $this->setUser($viewer);
+        $statuses = get_post_report_status::execute([$discussion->firstpost, $private->id, $deleted->id]);
+
+        $this->assertEquals([(int) $discussion->firstpost], array_column($statuses, 'postid'));
+    }
 }

@@ -140,6 +140,99 @@ final class moderate_report_test extends \advanced_testcase {
     }
 
     /**
+     * Create a post by an author enrolled with the given role, and a report against it.
+     *
+     * @param string $role
+     * @return array [author, report]
+     */
+    private function create_report_against_role(string $role): array {
+        global $DB;
+
+        $author = $this->getDataGenerator()->create_user();
+        $reporter = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($author->id, $this->course->id, $role);
+        $this->getDataGenerator()->enrol_user($reporter->id, $this->course->id, 'teacher');
+
+        $discussion = $this->getDataGenerator()->get_plugin_generator('mod_forum')->create_discussion([
+            'course' => $this->course->id,
+            'forum' => $this->forum->id,
+            'userid' => $author->id,
+        ]);
+        $post = $DB->get_record('forum_posts', ['discussion' => $discussion->id], '*', MUST_EXIST);
+        $reportid = $DB->insert_record('local_forumcare_report', (object) [
+            'postid' => $post->id,
+            'discussionid' => $discussion->id,
+            'forumid' => $this->forum->id,
+            'courseid' => $this->course->id,
+            'reporterid' => $reporter->id,
+            'reasonid' => $this->reasonid,
+            'comment' => '',
+            'status' => 'pending',
+            'timecreated' => time(),
+        ]);
+        return [$author, $DB->get_record('local_forumcare_report', ['id' => $reportid], '*', MUST_EXIST), $reporter];
+    }
+
+    /**
+     * A non-editing teacher (reviewreports) cannot suspend an editing teacher's enrolment
+     * through the moderation web service; the report stays pending.
+     */
+    public function test_noneditingteacher_cannot_suspend_editingteacher(): void {
+        global $DB;
+
+        [$author, $report, $teacher] = $this->create_report_against_role('editingteacher');
+        $this->setUser($teacher);
+
+        try {
+            \local_forumcare\external\moderate_report::execute($report->id, 'suspend_course');
+            $this->fail('Suspending a moderator must be refused');
+        } catch (\moodle_exception $e) {
+            $this->assertEquals('errorcannotsuspendprivileged', $e->errorcode);
+        }
+
+        $status = $DB->get_field_sql(
+            "SELECT ue.status FROM {user_enrolments} ue
+               JOIN {enrol} e ON e.id = ue.enrolid
+              WHERE e.courseid = :courseid AND ue.userid = :userid",
+            ['courseid' => $this->course->id, 'userid' => $author->id]
+        );
+        $this->assertEquals(ENROL_USER_ACTIVE, $status);
+        $this->assertEquals('pending', $DB->get_field('local_forumcare_report', 'status', ['id' => $report->id]));
+    }
+
+    /**
+     * Site-wide suspension is refused for a privileged target (a course manager) too.
+     */
+    public function test_cannot_suspend_site_privileged_author(): void {
+        global $DB;
+
+        [$author, $report] = $this->create_report_against_role('manager');
+        $admin = get_admin();
+
+        try {
+            helper::apply_moderation($report->id, 'suspend_site', (int) $admin->id);
+            $this->fail('Suspending a moderator site-wide must be refused');
+        } catch (\moodle_exception $e) {
+            $this->assertEquals('errorcannotsuspendprivileged', $e->errorcode);
+        }
+        $this->assertEquals(0, $DB->get_field('user', 'suspended', ['id' => $author->id]));
+    }
+
+    /**
+     * The manual suspend_site action suspends an ordinary student author.
+     */
+    public function test_suspend_site_action(): void {
+        global $DB;
+
+        [, $report, $author] = $this->create_post_and_report();
+        $this->setAdminUser();
+        \local_forumcare\external\moderate_report::execute($report->id, 'suspend_site');
+
+        $this->assertEquals(1, $DB->get_field('user', 'suspended', ['id' => $author->id]));
+        $this->assertEquals('reviewed', $DB->get_field('local_forumcare_report', 'status', ['id' => $report->id]));
+    }
+
+    /**
      * Marking a report frivolous sets the outcome and counts toward the reporter's block.
      */
     public function test_mark_frivolous(): void {

@@ -21,6 +21,7 @@ use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
+use local_forumcare\local\helper;
 
 /**
  * For a batch of forum posts, tell the client whether each one is the
@@ -62,18 +63,27 @@ class get_post_report_status extends external_api {
         }
 
         [$insql, $inparams] = $DB->get_in_or_equal($params['postids'], SQL_PARAMS_NAMED);
-        $posts = $DB->get_records_sql(
-            "SELECT p.id, p.userid, d.forum, d.course
-               FROM {forum_posts} p
-               JOIN {forum_discussions} d ON d.id = p.discussion
-              WHERE p.id $insql",
-            $inparams
-        );
+        $posts = $DB->get_records_select('forum_posts', "id $insql", $inparams);
 
+        $discussions = [];
+        $forums = [];
         $result = [];
         foreach ($posts as $post) {
             try {
-                $cm = get_coursemodule_from_instance('forum', $post->forum, $post->course, false, MUST_EXIST);
+                if (!isset($discussions[$post->discussion])) {
+                    $discussions[$post->discussion] = $DB->get_record(
+                        'forum_discussions',
+                        ['id' => $post->discussion],
+                        '*',
+                        MUST_EXIST
+                    );
+                }
+                $discussion = $discussions[$post->discussion];
+                if (!isset($forums[$discussion->forum])) {
+                    $forums[$discussion->forum] = $DB->get_record('forum', ['id' => $discussion->forum], '*', MUST_EXIST);
+                }
+                $forum = $forums[$discussion->forum];
+                $cm = get_coursemodule_from_instance('forum', $forum->id, $discussion->course, false, MUST_EXIST);
                 $context = \context_module::instance($cm->id);
                 self::validate_context($context);
             } catch (\Exception $e) {
@@ -81,6 +91,11 @@ class get_post_report_status extends external_api {
             }
 
             if (!has_capability('local/forumcare:report', $context)) {
+                continue;
+            }
+
+            // Same visibility rule as submit_report: skip posts the user cannot see.
+            if (!helper::user_can_see_post($post, $discussion, $forum, $cm, $USER)) {
                 continue;
             }
 

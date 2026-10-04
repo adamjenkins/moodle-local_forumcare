@@ -18,7 +18,9 @@ namespace local_forumcare\privacy;
 
 use core_privacy\local\metadata\collection;
 use core_privacy\local\request\approved_contextlist;
+use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\contextlist;
+use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 
 /**
@@ -35,6 +37,7 @@ use core_privacy\local\request\writer;
  */
 class provider implements
     \core_privacy\local\metadata\provider,
+    \core_privacy\local\request\core_userlist_provider,
     \core_privacy\local\request\plugin\provider {
     /**
      * Returns meta data about this system.
@@ -238,26 +241,139 @@ class provider implements
                 continue;
             }
 
-            $DB->set_field('local_forumcare_report', 'reporterid', 0, [
-                'forumid' => $cm->instance,
-                'reporterid' => $userid,
-            ]);
-            $DB->set_field('local_forumcare_report', 'reviewedby', 0, [
-                'forumid' => $cm->instance,
-                'reviewedby' => $userid,
-            ]);
-
-            // Anonymise the moderator id on hidden-post backups for this forum.
-            $DB->set_field_select(
-                'local_forumcare_hidden',
-                'hiddenby',
-                0,
-                'hiddenby = :userid AND postid IN (SELECT p.id
-                                                     FROM {forum_posts} p
-                                                     JOIN {forum_discussions} d ON d.id = p.discussion
-                                                    WHERE d.forum = :forumid)',
-                ['userid' => $userid, 'forumid' => $cm->instance]
-            );
+            self::delete_users_data_in_forum((int) $cm->instance, [(int) $userid]);
         }
+    }
+
+    /**
+     * Get the list of users who have data within a context.
+     *
+     * @param userlist $userlist
+     * @return void
+     */
+    public static function get_users_in_context(userlist $userlist): void {
+        $context = $userlist->get_context();
+        if ($context->contextlevel !== CONTEXT_MODULE) {
+            return;
+        }
+        $cm = get_coursemodule_from_id('forum', $context->instanceid);
+        if (!$cm) {
+            return;
+        }
+        $params = ['forumid' => $cm->instance];
+
+        // Reporters, reviewers and the authors of reported posts.
+        $userlist->add_from_sql(
+            'reporterid',
+            "SELECT reporterid FROM {local_forumcare_report} WHERE forumid = :forumid AND reporterid > 0",
+            $params
+        );
+        $userlist->add_from_sql(
+            'reviewedby',
+            "SELECT reviewedby FROM {local_forumcare_report} WHERE forumid = :forumid AND reviewedby > 0",
+            $params
+        );
+        $userlist->add_from_sql(
+            'userid',
+            "SELECT p.userid
+               FROM {local_forumcare_report} r
+               JOIN {forum_posts} p ON p.id = r.postid
+              WHERE r.forumid = :forumid",
+            $params
+        );
+
+        // Moderators who hid a post and the authors whose content is backed up.
+        $hiddenfrom = "FROM {local_forumcare_hidden} h
+                       JOIN {forum_posts} p ON p.id = h.postid
+                       JOIN {forum_discussions} d ON d.id = p.discussion
+                      WHERE d.forum = :forumid";
+        $userlist->add_from_sql('hiddenby', "SELECT h.hiddenby $hiddenfrom AND h.hiddenby > 0", $params);
+        $userlist->add_from_sql('userid', "SELECT p.userid $hiddenfrom", $params);
+    }
+
+    /**
+     * Delete data for multiple users within a single context.
+     *
+     * @param approved_userlist $userlist
+     * @return void
+     */
+    public static function delete_data_for_users(approved_userlist $userlist): void {
+        $context = $userlist->get_context();
+        if ($context->contextlevel !== CONTEXT_MODULE) {
+            return;
+        }
+        $cm = get_coursemodule_from_id('forum', $context->instanceid);
+        if (!$cm) {
+            return;
+        }
+        $userids = array_map('intval', $userlist->get_userids());
+        if ($userids) {
+            self::delete_users_data_in_forum((int) $cm->instance, $userids);
+        }
+    }
+
+    /**
+     * Remove the given users' personal data from one forum's forum care rows.
+     *
+     * Reports are shared moderation history, so the users' ids are anonymised
+     * and a reporter's own free-text comment is blanked. A hidden-post backup
+     * holds the post author's original content: it is deleted when its author
+     * is erased (core forum keeps the post row but blanks it, and the backup
+     * must not survive or be written back by "Mark as OK"). The moderator id
+     * on other backups is anonymised.
+     *
+     * @param int $forumid
+     * @param int[] $userids
+     * @return void
+     */
+    protected static function delete_users_data_in_forum(int $forumid, array $userids): void {
+        global $DB;
+
+        [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+        $params = $inparams + ['forumid' => $forumid];
+
+        // Blank the comment first: the reporterid condition stops matching once it is zeroed.
+        $DB->set_field_select(
+            'local_forumcare_report',
+            'comment',
+            '',
+            "forumid = :forumid AND reporterid $insql",
+            $params
+        );
+        $DB->set_field_select(
+            'local_forumcare_report',
+            'reporterid',
+            0,
+            "forumid = :forumid AND reporterid $insql",
+            $params
+        );
+        $DB->set_field_select(
+            'local_forumcare_report',
+            'reviewedby',
+            0,
+            "forumid = :forumid AND reviewedby $insql",
+            $params
+        );
+
+        $forumposts = "SELECT p.id
+                         FROM {forum_posts} p
+                         JOIN {forum_discussions} d ON d.id = p.discussion
+                        WHERE d.forum = :forumid";
+
+        // The erased authors' own content.
+        [$authorsql, $authorparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'author');
+        $DB->delete_records_select(
+            'local_forumcare_hidden',
+            "postid IN ($forumposts AND p.userid $authorsql)",
+            ['forumid' => $forumid] + $authorparams
+        );
+
+        $DB->set_field_select(
+            'local_forumcare_hidden',
+            'hiddenby',
+            0,
+            "hiddenby $insql AND postid IN ($forumposts)",
+            $params
+        );
     }
 }

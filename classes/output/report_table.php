@@ -311,9 +311,13 @@ class report_table extends \table_sql {
         if (!$this->is_post_hidden($row->postid)) {
             $actions['hide'] = 'action:hidepost';
         }
-        $actions['suspend_course'] = 'action:suspendcourse';
-        if ($this->cansuspendsitewide) {
-            $actions['suspend_site'] = 'action:suspendsite';
+        // Moderators and site admins cannot be suspended (helper::apply_moderation
+        // refuses), so do not offer buttons that can only fail.
+        if (!\local_forumcare\local\helper::is_protected_from_suspension((int) $row->reporteeid, (int) $row->courseid)) {
+            $actions['suspend_course'] = 'action:suspendcourse';
+            if ($this->cansuspendsitewide) {
+                $actions['suspend_site'] = 'action:suspendsite';
+            }
         }
         $actions['frivolous'] = 'action:markfrivolous';
 

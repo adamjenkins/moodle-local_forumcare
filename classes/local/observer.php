@@ -49,6 +49,17 @@ class observer {
     }
 
     /**
+     * A forum post was edited through mod_forum. If this plugin has hidden it,
+     * keep it hidden: the edit cannot silently undo a moderation takedown.
+     *
+     * @param \mod_forum\event\post_updated $event
+     * @return void
+     */
+    public static function post_updated(\mod_forum\event\post_updated $event): void {
+        helper::rehide_edited_post((int) $event->objectid);
+    }
+
+    /**
      * Remove hidden-post backups whose underlying forum post no longer exists.
      *
      * The _hidden table keys only on postid, and module/course deletion removes

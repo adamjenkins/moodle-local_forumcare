@@ -14,6 +14,9 @@ A Moodle local plugin that lets students report problematic posts in `mod_forum`
   - Optional admin-only auto-suspend of a user's account site-wide once N **different** users have open reports against their posts across the whole site.
   - Auto-block a user from submitting further reports once N of their past reports have been marked frivolous by a moderator. A blocked user sees no difference in the UI — their report is silently recorded but excluded from every threshold count.
   - Any per-forum threshold can be set to `0` to disable that specific protection for that forum only.
+- **Moderators cannot be suspended**: site admins, holders of `local/forumcare:suspendsitewide`, and anyone with `local/forumcare:reviewreports` or `moodle/course:update` in the course are never suspended, by the automatic thresholds or by the manual suspend actions.
+- Only posts the reporter can actually see (groups, private replies, deleted posts) can be reported.
+- A hidden post stays hidden if its author edits it: the placeholder is put back and the edited text becomes the content "Mark as OK" restores.
 - **Teacher review queue** (`/local/forumcare/report.php`), filterable by forum/reporter/reportee, with the post title, forum name, and reporter/reportee names linking to the post, forum, and profile pages respectively. Reportable columns are independently sortable.
 - **Colour-coded moderator actions**: Mark as OK (green), Suspend in course / Suspend site-wide (red), Mark as frivolous / Hide post (yellow), and Undo review (revert a reviewed report back to pending).
 - Hidden-post placeholders are styled as Bootstrap info notices, with distinct wording for automatic (threshold-triggered) vs manual (teacher-clicked "Hide post") hides.
@@ -21,7 +24,7 @@ A Moodle local plugin that lets students report problematic posts in `mod_forum`
 
 ## Requirements
 
-- Moodle 4.5 (`2024100700`) or later. Tested against Moodle 5.0, 5.1, and 5.2; moodle.git main (5.3) as a non-blocking job (see `.github/workflows/ci.yml`).
+- Moodle 5.0 (`2025041400`) or later. Tested against Moodle 5.0, 5.1, and 5.2; moodle.git main (5.3) as a non-blocking job (see `.github/workflows/ci.yml`).
 - `mod_forum` (bundled with Moodle core).
 
 ## Installation
@@ -50,9 +53,9 @@ A reason that has reports filed under it cannot be deleted (doing so would drop 
 
 ## Privacy
 
-This plugin stores personal data (who reported what, and why) and implements the full `core_privacy` API. Since report rows are shared between the reporter, the reportee, and the reviewer, deleting a user's data anonymises that user's own identifying fields on the row rather than deleting the row outright, since other users still need it as moderation history.
+This plugin stores personal data (who reported what, and why) and implements the full `core_privacy` API, including `core_userlist_provider`. Since report rows are shared between the reporter, the reportee, and the reviewer, deleting a user's data anonymises that user's own identifying fields on the row (and blanks a reporter's free-text comment) rather than deleting the row outright, since other users still need it as moderation history.
 
-Hidden posts keep a backup of their original content (so it can be restored when unhidden). This backup is covered by the privacy API too: a subject-access export returns the author their original hidden content and tells a moderator which posts they hid, erasure anonymises the moderator id, and the backup is removed when the forum or course is deleted. Uninstalling the plugin restores every still-hidden post's original content before its tables are dropped.
+Hidden posts keep a backup of their original content (so it can be restored when unhidden). This backup is covered by the privacy API too: a subject-access export returns the author their original hidden content and tells a moderator which posts they hid, erasure anonymises the moderator id and deletes the backups of the erased user's own posts, and the backup is removed when the forum or course is deleted. Uninstalling the plugin restores every still-hidden post's original content before its tables are dropped.
 
 ## Known limitations
 
