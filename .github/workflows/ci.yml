@@ -5,13 +5,11 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-22.04
-    # moodle.git main rows are experimental (non-blocking): main is a moving target.
-    continue-on-error: ${{ matrix.experimental == true }}
 
     services:
       postgres:
         # Moodle 5.2 requires PostgreSQL 16+ (5.1: 15+, 5.0: 14+), per admin/environment.xml.
-        # main (5.3) requires PostgreSQL 17+ (environment.xml 5.3 block), set via matrix.pgsql-image.
+        # MOODLE_503_STABLE requires PostgreSQL 17+ (environment.xml 5.3 block), set via matrix.pgsql-image.
         image: ${{ matrix.pgsql-image || 'postgres:16' }}
         env:
           POSTGRES_USER: 'postgres'
@@ -22,7 +20,7 @@ jobs:
 
       mariadb:
         # Moodle 5.0, 5.1 and 5.2 all require MariaDB 10.11+, per admin/environment.xml.
-        # main (5.3) requires MariaDB 11.4+ (environment.xml 5.3 block), set via matrix.mariadb-image.
+        # MOODLE_503_STABLE requires MariaDB 11.4+ (environment.xml 5.3 block), set via matrix.mariadb-image.
         image: ${{ matrix.mariadb-image || 'mariadb:10.11' }}
         env:
           MYSQL_USER: 'root'
@@ -47,18 +45,16 @@ jobs:
           - php: '8.2'
             moodle-branch: 'MOODLE_502_STABLE'
         include:
-          # moodle.git main (= 5.3beta): PHP 8.3-8.4, PostgreSQL 17+, MariaDB 11.4+.
-          # Non-blocking (experimental) by owner decision; Grunt stays off main.
+          # MOODLE_503_STABLE: PHP 8.3-8.4, PostgreSQL 17+, MariaDB 11.4+ (environment.xml
+          # 5.3 block). Blocking; Grunt stays off 5.3 (see the Grunt step).
           - php: '8.4'
-            moodle-branch: 'main'
+            moodle-branch: 'MOODLE_503_STABLE'
             database: pgsql
-            experimental: true
             pgsql-image: 'postgres:17'
             mariadb-image: 'mariadb:11.4'
           - php: '8.3'
-            moodle-branch: 'main'
+            moodle-branch: 'MOODLE_503_STABLE'
             database: mariadb
-            experimental: true
             pgsql-image: 'postgres:17'
             mariadb-image: 'mariadb:11.4'
 
