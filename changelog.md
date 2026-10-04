@@ -30,6 +30,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   The report-status service skips such posts too.
 - An author who edits a hidden post can no longer undo the hide: the post is
   re-hidden and the edited text becomes the content "Mark as OK" restores.
+  Saving a hidden post without changing it keeps the original content even
+  when the placeholder was written in another language or the placeholder
+  string was customised since (the placeholder written is now stored with the
+  backup; an upgrade step adds and back-fills it).
 - Restoring a forum cleans the backed-up forum care settings instead of writing
   them verbatim.
 

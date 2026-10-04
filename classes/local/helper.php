@@ -324,6 +324,9 @@ class helper {
 
         $post = $DB->get_record('forum_posts', ['id' => $postid], '*', MUST_EXIST);
 
+        $langkey = $automatic ? self::HIDDEN_PLACEHOLDER_LANGKEY : self::HIDDEN_PLACEHOLDER_MANUAL_LANGKEY;
+        $placeholder = self::render_placeholder($langkey);
+
         $backup = new \stdClass();
         $backup->postid = $postid;
         $backup->originalmessage = $post->message;
@@ -331,13 +334,12 @@ class helper {
         $backup->originalmessagetrust = $post->messagetrust;
         $backup->hiddenby = $hiddenby;
         $backup->timehidden = time();
+        $backup->placeholder = $placeholder;
         $backupid = $DB->insert_record('local_forumcare_hidden', $backup);
-
-        $langkey = $automatic ? self::HIDDEN_PLACEHOLDER_LANGKEY : self::HIDDEN_PLACEHOLDER_MANUAL_LANGKEY;
 
         $update = new \stdClass();
         $update->id = $postid;
-        $update->message = \html_writer::div(get_string($langkey, 'local_forumcare'), 'alert alert-info');
+        $update->message = $placeholder;
         $update->messageformat = FORMAT_HTML;
         $update->messagetrust = 0;
         $DB->update_record('forum_posts', $update);
@@ -382,14 +384,47 @@ class helper {
     }
 
     /**
-     * Whether a saved post message is (an editor round trip of) one of this
-     * plugin's hidden-post placeholders, in the current or the English language.
+     * The placeholder HTML written over a hidden post's message.
+     *
+     * @param string $langkey One of the HIDDEN_PLACEHOLDER_* lang keys.
+     * @return string
+     */
+    protected static function render_placeholder(string $langkey): string {
+        return \html_writer::div(get_string($langkey, 'local_forumcare'), 'alert alert-info');
+    }
+
+    /**
+     * Reduce a post message to whitespace-normalised plain text, so an editor
+     * round trip of the same placeholder (reformatted markup) compares equal.
      *
      * @param string $message
+     * @return string
+     */
+    protected static function normalise_message_text(string $message): string {
+        return trim(preg_replace('/\s+/u', ' ', html_to_text($message, 0, false)));
+    }
+
+    /**
+     * Whether a saved post message is (an editor round trip of) the placeholder
+     * this plugin wrote over the hidden post.
+     *
+     * The message is compared with the exact placeholder stored when it was
+     * written, not with the lang string re-derived now: the post may have been
+     * hidden in another user's language, or the string may have been customised
+     * since. Rows hidden before that text was stored (null) fall back to the
+     * lang strings in the current and the English language.
+     *
+     * @param string $message The saved post message.
+     * @param string|null $storedplaceholder The placeholder recorded in the backup row.
      * @return bool
      */
-    protected static function is_placeholder_message(string $message): bool {
-        $text = trim(preg_replace('/\s+/u', ' ', html_to_text($message, 0, false)));
+    protected static function is_placeholder_message(string $message, ?string $storedplaceholder): bool {
+        $text = self::normalise_message_text($message);
+        if ($storedplaceholder !== null && $storedplaceholder !== '') {
+            if ($text === self::normalise_message_text($storedplaceholder)) {
+                return true;
+            }
+        }
         $manager = get_string_manager();
         foreach ([self::HIDDEN_PLACEHOLDER_LANGKEY, self::HIDDEN_PLACEHOLDER_MANUAL_LANGKEY] as $key) {
             if (
@@ -408,7 +443,9 @@ class helper {
      * The author (inside the edit window) or anyone with mod/forum:editanypost
      * can save over the placeholder. The newly saved text becomes the backed-up
      * original, so "Mark as OK" later restores the latest version rather than a
-     * stale one, and the placeholder is put back on the live post.
+     * stale one, and the placeholder is put back on the live post. An edit that
+     * leaves the placeholder itself unchanged (e.g. a subject-only edit) keeps
+     * the existing backup.
      *
      * @param int $postid
      * @return void
@@ -425,17 +462,22 @@ class helper {
             return;
         }
 
-        if (!self::is_placeholder_message((string) $post->message)) {
+        if (!self::is_placeholder_message((string) $post->message, $backup->placeholder ?? null)) {
             $backup->originalmessage = $post->message;
             $backup->originalmessageformat = $post->messageformat;
             $backup->originalmessagetrust = $post->messagetrust;
-            $DB->update_record('local_forumcare_hidden', $backup);
         }
 
+        // Record the placeholder actually written, so the next edit is
+        // recognised whatever the editor's language or later string changes.
         $langkey = empty($backup->hiddenby) ? self::HIDDEN_PLACEHOLDER_LANGKEY : self::HIDDEN_PLACEHOLDER_MANUAL_LANGKEY;
+        $placeholder = self::render_placeholder($langkey);
+        $backup->placeholder = $placeholder;
+        $DB->update_record('local_forumcare_hidden', $backup);
+
         $DB->update_record('forum_posts', (object) [
             'id' => $postid,
-            'message' => \html_writer::div(get_string($langkey, 'local_forumcare'), 'alert alert-info'),
+            'message' => $placeholder,
             'messageformat' => FORMAT_HTML,
             'messagetrust' => 0,
         ]);

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/forumcare/db" VERSION="20260625" COMMENT="XMLDB file for Moodle local/forumcare"
+<XMLDB PATH="local/forumcare/db" VERSION="20261004" COMMENT="XMLDB file for Moodle local/forumcare"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -89,6 +89,7 @@
         <FIELD NAME="originalmessagetrust" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="hiddenby" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timehidden" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="placeholder" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="The exact placeholder HTML last written over the post, used to recognise it after an edit"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

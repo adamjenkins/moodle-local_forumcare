@@ -85,5 +85,30 @@ function xmldb_local_forumcare_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026062503, 'local', 'forumcare');
     }
 
+    if ($oldversion < 2026100401) {
+        // Store the placeholder written over each hidden post, so an edit that
+        // keeps it is recognised whatever language it was written in.
+        $table = new xmldb_table('local_forumcare_hidden');
+        $field = new xmldb_field('placeholder', XMLDB_TYPE_TEXT, null, null, null, null, null, 'timehidden');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // A hidden post's live message is the placeholder (an edit re-writes it),
+        // so back-fill the column from the post itself.
+        $rs = $DB->get_recordset_sql(
+            "SELECT h.id, p.message
+               FROM {local_forumcare_hidden} h
+               JOIN {forum_posts} p ON p.id = h.postid
+              WHERE h.placeholder IS NULL"
+        );
+        foreach ($rs as $row) {
+            $DB->set_field('local_forumcare_hidden', 'placeholder', $row->message, ['id' => $row->id]);
+        }
+        $rs->close();
+
+        upgrade_plugin_savepoint(true, 2026100401, 'local', 'forumcare');
+    }
+
     return true;
 }

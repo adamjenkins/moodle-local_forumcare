@@ -263,6 +263,51 @@ final class observer_test extends \advanced_testcase {
     }
 
     /**
+     * A placeholder written in another language (or before the string was
+     * customised) is still recognised when the post is saved unchanged by an
+     * editor whose current string differs, so the backed-up original survives.
+     */
+    public function test_edit_keeping_placeholder_from_other_language_preserves_backup(): void {
+        global $DB;
+
+        [, , , $postid, $reportid] = $this->create_reported_post();
+        $original = $DB->get_field('forum_posts', 'message', ['id' => $postid]);
+        helper::hide_post($postid, 0, true);
+        $writtenplaceholder = $DB->get_field('forum_posts', 'message', ['id' => $postid]);
+        $this->assertEquals(
+            $writtenplaceholder,
+            $DB->get_field('local_forumcare_hidden', 'placeholder', ['postid' => $postid])
+        );
+
+        // The editor now gets a different placeholder text in every language
+        // (another session language, or a tool_customlang change).
+        $this->get_mocked_string_manager()->mock_string(
+            'hiddenpostplaceholder',
+            'local_forumcare',
+            'Ce message est masqué en attendant la modération.'
+        );
+        $this->assertStringNotContainsString(get_string('hiddenpostplaceholder', 'local_forumcare'), $writtenplaceholder);
+
+        // A subject-only edit resubmits the placeholder that is on the post.
+        $this->author_edits_post($postid, "<div class=\"alert alert-info\">\n" .
+            html_to_text($writtenplaceholder, 0, false) . "\n</div>");
+
+        $backup = $DB->get_record('local_forumcare_hidden', ['postid' => $postid], '*', MUST_EXIST);
+        $this->assertEquals($original, $backup->originalmessage);
+        $live = $DB->get_field('forum_posts', 'message', ['id' => $postid]);
+        $this->assertStringContainsString('Ce message est masqué', $live);
+        $this->assertEquals($live, $backup->placeholder);
+
+        // A second unchanged save, now of the re-written placeholder, still keeps the original.
+        $this->author_edits_post($postid, $live);
+        $this->assertEquals($original, $DB->get_field('local_forumcare_hidden', 'originalmessage', ['postid' => $postid]));
+
+        // The "Mark as OK" action restores the real content, not a placeholder.
+        helper::apply_moderation($reportid, 'ok', (int) get_admin()->id);
+        $this->assertEquals($original, $DB->get_field('forum_posts', 'message', ['id' => $postid]));
+    }
+
+    /**
      * Editing a post that is not hidden is left alone.
      */
     public function test_edit_of_visible_post_untouched(): void {
