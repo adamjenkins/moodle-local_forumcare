@@ -1,6 +1,6 @@
 # Changes
 
-## [Unreleased]
+## v1.1.4
 
 - Privacy: erasing a post author now deletes the backup of their hidden post's
   original content, and "Mark as OK" never writes content back into a post that
@@ -28,12 +28,7 @@
   thresholds to a non-negative integer or empty) instead of writing them verbatim.
 - Requires Moodle 5.0 or later (`$plugin->requires` raised to match the
   supported range; it previously allowed 4.5, which was never supported).
-
-## v1.1.3
-
-- Declare Moodle 5.3 support.
-- Site-wide suspension now uses `\core\user::update_user()` on Moodle 5.3+,
-  where `user_update_user()` is deprecated; older versions keep using
-  `user_update_user()`.
-- Activity settings form callbacks no longer raise an "Undefined property
-  $modulename" warning for other activities' forms built without it.
+- composer.json requires `moodle/moodle` `^5.0`, matching the supported range.
+- Continuous integration now tests against the released Moodle 5.3
+  (MOODLE_503_STABLE) instead of Moodle's development branch.
+- Releases are now also published to the camp plugin registry.

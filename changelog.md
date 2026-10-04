@@ -4,12 +4,20 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [1.1.4] - 2026-10-04
+
+### Added
+
+- Releases are also published to the camp plugin registry (camp release
+  workflow).
 
 ### Changed
 
 - Requires Moodle 5.0 or later (`$plugin->requires` raised to match the
   supported range; it previously allowed 4.5, which was never supported).
+- composer.json requires `moodle/moodle` `^5.0`, matching the supported range.
+- Continuous integration tests against the released Moodle 5.3
+  (MOODLE_503_STABLE) instead of Moodle's development branch.
 - Course moderators (anyone with `local/forumcare:reviewreports` or
   `moodle/course:update` in the course), holders of
   `local/forumcare:suspendsitewide` and site admins are never suspended by the
