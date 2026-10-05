@@ -15,9 +15,17 @@ labels:
   #   fully-free | freemium | paid-service | external-account
   #   donation-supported | commercial-support-available
   - fully-free
-# screenshots:
-#   - path: .camp/screenshots/overview.png
-#     caption: Main view
+screenshots:
+  - path: .camp/screenshots/01-reporting.png
+    caption: 'A student reports a post: "Report this post" opens a dialog asking for a reason and optional details'
+  - path: .camp/screenshots/02-review-queue.png
+    caption: 'The moderation queue: each reported post with its reporter, reason, report count and status, and actions to mark it OK, hide the post, suspend the user in the course or mark the report frivolous'
+  - path: .camp/screenshots/03-student-report-link.png
+    caption: 'The "Report this post" link beside Permalink and Reply, shown only in ForumCare-enabled forums'
+  - path: .camp/screenshots/04-student-report-modal.png
+    caption: 'The report dialog: a reason from the site''s list and an optional comment'
+  - path: .camp/screenshots/05-hidden-post.png
+    caption: 'A hidden post: its message is replaced by "This post has been hidden by a moderator."'
 # links:
 #   docs: https://…
 #   issues: https://…
