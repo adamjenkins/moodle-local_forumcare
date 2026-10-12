@@ -4,6 +4,32 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.5] - 2026-10-12
+
+### Added
+
+- A flag icon and a notice at the top of the report dialog, saying the report
+  goes privately to the forum moderators and is not a reply (new strings
+  `reportnoticeheading`, `reportnotice`; new `styles.css`).
+- A plugin icon (`pix/icon.svg`), shown on Site administration > Plugins overview.
+- Behat coverage (`tests/behat/report_post.feature`) and a test data generator
+  (`tests/generator/`) for reasons and per-forum enablement.
+
+### Changed
+
+- The "Report this post" link and the "Post reported" label are inserted first
+  in a post's action links, before Permalink, Edit and Reply, so they are not
+  clicked by mistake for Reply.
+
+### Fixed
+
+- Upgrade step 2026101200 re-hides posts whose author edited them while hidden
+  under 1.1.3 or earlier: the 1.1.4 back-fill (2026100401) had stored the
+  author's text as the placeholder, leaving the post visible. The edit becomes
+  the backed-up original (`db/upgradelib.php`).
+- Report reason names are escaped with `s()` in the "reason in use" redirect
+  message and the delete confirmation on the reasons page.
+
 ## [1.1.4] - 2026-10-04
 
 ### Added

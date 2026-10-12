@@ -1,0 +1,8 @@
+/* Report modal: show the flag icon at a size that makes the notice stand out. */
+.local-forumcare-reportnotice-icon .icon {
+    font-size: 2rem;
+    width: auto;
+    height: auto;
+    margin: 0;
+    color: inherit;
+}

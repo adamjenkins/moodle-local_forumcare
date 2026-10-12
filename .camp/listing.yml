@@ -4,8 +4,9 @@
 name: local_forumcare
 summary: A Moodle local plugin that lets students report problematic posts in `mod_forum` forums, with configurable auto-moderation (hide posts, suspend users) and a teacher review queue.
 description: |
-  Students report problematic posts via a link injected into every forum
-  post's action menu, choosing from configurable report reasons (site-wide or
+  Students report problematic posts via a link placed first in every forum
+  post's action menu (so it is not mistaken for Reply), in a dialog that
+  says plainly it is a report, not a reply, choosing from configurable report reasons (site-wide or
   per-course). Thresholds can auto-hide a post after N open reports and
   auto-suspend repeat offenders — counting distinct reporters, so one person
   cannot trigger it alone — with a teacher review queue behind it. Reporting is
@@ -19,11 +20,11 @@ screenshots:
   - path: .camp/screenshots/01-reporting.png
     caption: 'A student reports a post: "Report this post" opens a dialog asking for a reason and optional details'
   - path: .camp/screenshots/02-review-queue.png
-    caption: 'The moderation queue: each reported post with its reporter, reason, report count and status, and actions to mark it OK, hide the post, suspend the user in the course or mark the report frivolous'
+    caption: 'The moderation queue: each reported post with its reporter, reason and status, and actions to mark OK, hide or suspend'
   - path: .camp/screenshots/03-student-report-link.png
-    caption: 'The "Report this post" link beside Permalink and Reply, shown only in ForumCare-enabled forums'
+    caption: 'The "Report this post" link, placed first, before Permalink and Reply, in ForumCare-enabled forums'
   - path: .camp/screenshots/04-student-report-modal.png
-    caption: 'The report dialog: a reason from the site''s list and an optional comment'
+    caption: 'The report dialog: a flag and a notice that this is a report, not a reply, then a reason and an optional comment'
   - path: .camp/screenshots/05-hidden-post.png
     caption: 'A hidden post: its message is replaced by "This post has been hidden by a moderator."'
 # links:

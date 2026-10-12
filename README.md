@@ -4,7 +4,7 @@ A Moodle local plugin that lets students report problematic posts in `mod_forum`
 
 ## Features
 
-- **"Report this post" / "Post reported" link** injected into every forum post's action menu (mod_forum has no native hook for this, so it's added client-side via a `core/modal_save_cancel` modal). The link is omitted entirely on a user's own posts, and replaced with an unlinked "Post reported" label on posts they've already reported.
+- **"Report this post" / "Post reported" link** injected at the start of every forum post's action menu, to the left of Permalink, Edit and Reply so it is not mistaken for Reply (mod_forum has no native hook for this, so it's added client-side via a `core/modal_save_cancel` modal that opens with a flag icon and a notice that this is a report, not a reply). The link is omitted entirely on a user's own posts, and replaced with an unlinked "Post reported" label on posts they've already reported.
 - **Configurable report reasons**, either site-wide defaults or overridden per course (e.g. "Offensive language", "Overuse of AI").
 - **Per-forum opt-in** — reporting is disabled by default for every forum; a teacher/manager enables it (and may override the site-wide thresholds) from a "Forum care" section embedded directly in the forum's own *Edit settings* page.
 - **Site-wide master switch** in Site administration, independent of the per-forum opt-in.
@@ -24,7 +24,7 @@ A Moodle local plugin that lets students report problematic posts in `mod_forum`
 
 ## Requirements
 
-- Moodle 5.0 (`2025041400`) or later. Tested against Moodle 5.0, 5.1, and 5.2; moodle.git main (5.3) as a non-blocking job (see `.github/workflows/ci.yml`).
+- Moodle 5.0 (`2025041400`) or later. Tested against Moodle 5.0, 5.1, 5.2 and 5.3 (see `.github/workflows/ci.yml`).
 - `mod_forum` (bundled with Moodle core).
 
 ## Installation
@@ -65,9 +65,9 @@ Hidden posts keep a backup of their original content (so it can be restored when
 ## Development
 
 - Code style: Moodle coding standard (`local_codechecker` / `moodle-plugin-ci phpcs`).
-- JavaScript: `amd/src/report.js` is ES6 source; run `grunt amd` from the Moodle root after editing it to regenerate `amd/build/report.min.js` and its sourcemap.
-- Tests: `tests/` contains PHPUnit coverage for threshold enforcement, moderation actions, course reason overrides, and the privacy provider.
-- CI: see `.github/workflows/ci.yml`, which runs the full `moodle-plugin-ci` suite (phplint, phpcs, phpdoc, validate, savepoints, mustache, grunt, phpunit, behat) against Moodle 5.0, 5.1, and 5.2; moodle.git main (5.3) as a non-blocking job.
+- JavaScript: `amd/src/report.js` is ES6 source; after editing it, run `grunt amd` from the root of a **Moodle 5.2** (`MOODLE_502_STABLE`) checkout to regenerate `amd/build/report.min.js` and its sourcemap. Each branch's toolchain minifies differently, and CI's stale-build check runs on 5.2 only.
+- Tests: `tests/` contains PHPUnit coverage for threshold enforcement, report submission and visibility checks, moderation actions, course reason overrides, edits to hidden posts, the upgrade repair of hidden posts, backup/restore, uninstall, and the privacy provider; and Behat coverage (`tests/behat/`) of the report link, its position, the report dialog and own-post handling.
+- CI: see `.github/workflows/ci.yml`, which runs the full `moodle-plugin-ci` suite (phplint, phpcs, phpdoc, validate, savepoints, mustache, grunt, phpunit, behat) against Moodle 5.0, 5.1, 5.2 and 5.3 (`MOODLE_503_STABLE`), on PostgreSQL and MariaDB.
 
 ## License
 

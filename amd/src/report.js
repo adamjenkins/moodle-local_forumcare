@@ -21,8 +21,10 @@
  *
  * mod_forum has no hook/callback for adding per-post action menu items, so
  * this module finds the existing action-menu containers in the rendered
- * page and appends a link to them, mirroring the markup of the existing
- * action items (see mod_forum/templates/forum_discussion_post.mustache).
+ * page and inserts a link at the start of them (to the left of Permalink,
+ * Edit, Reply etc., so it is not clicked by mistake for Reply), mirroring the
+ * markup of the existing action items (see
+ * mod_forum/templates/forum_discussion_post.mustache).
  *
  * @module     local_forumcare/report
  * @copyright  2026 Adam Jenkins <adam@wisecat.net>
@@ -73,12 +75,12 @@ const getPostIdFromContainer = (container) => {
 };
 
 /**
- * Append the "Report this post" link to a post's action menu container.
+ * Insert the "Report this post" link at the start of a post's action menu container.
  *
  * @param {HTMLElement} container
  * @param {Number} postId
  */
-const appendReportLink = (container, postId) => {
+const prependReportLink = (container, postId) => {
     const link = document.createElement('a');
     link.setAttribute('data-region', 'post-action');
     link.setAttribute('data-action', 'forumcare-report');
@@ -92,15 +94,15 @@ const appendReportLink = (container, postId) => {
         return str;
     }).catch(Notification.exception);
 
-    container.appendChild(link);
+    container.prepend(link);
 };
 
 /**
- * Append an unlinked "Post reported" label to a post's action menu container.
+ * Insert an unlinked "Post reported" label at the start of a post's action menu container.
  *
  * @param {HTMLElement} container
  */
-const appendReportedLabel = (container) => {
+const prependReportedLabel = (container) => {
     const label = document.createElement('span');
     label.setAttribute('data-region', 'post-action');
     label.setAttribute('class', 'btn btn-link disabled text-muted');
@@ -112,12 +114,12 @@ const appendReportedLabel = (container) => {
         return str;
     }).catch(Notification.exception);
 
-    container.appendChild(label);
+    container.prepend(label);
 };
 
 /**
  * Scan the page for post action-menu containers not yet processed, and for
- * each one append either the report link, a "Post reported" label, or
+ * each one prepend either the report link, a "Post reported" label, or
  * nothing at all (the viewer's own post).
  */
 const injectAllLinks = () => {
@@ -157,9 +159,9 @@ const injectAllLinks = () => {
                 return;
             }
             if (status.reported) {
-                appendReportedLabel(container);
+                prependReportedLabel(container);
             } else {
-                appendReportLink(container, postId);
+                prependReportLink(container, postId);
             }
         });
         return statuses;

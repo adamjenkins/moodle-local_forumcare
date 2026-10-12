@@ -17,7 +17,8 @@
 {{!
     @template local_forumcare/report_modal_body
 
-    Body content for the "Report this post" modal.
+    Body content for the "Report this post" modal. It opens with a flag icon
+    and a notice so the modal is not mistaken for a reply box.
 
     Context variables required for this template:
     * reasons - array of {id, name} report reasons
@@ -30,6 +31,13 @@
         ]
     }
 }}
+<div class="alert alert-warning d-flex align-items-start local-forumcare-reportnotice" data-region="forumcare-report-notice">
+    <span class="local-forumcare-reportnotice-icon me-3">{{#pix}} i/flagged, core {{/pix}}</span>
+    <div>
+        <p class="fw-bold mb-1">{{#str}} reportnoticeheading, local_forumcare {{/str}}</p>
+        <p class="mb-0">{{#str}} reportnotice, local_forumcare {{/str}}</p>
+    </div>
+</div>
 <form data-region="forumcare-report-form">
     <div class="mb-3">
         <label class="form-label" for="forumcare-reason">{{#str}} reportreason, local_forumcare {{/str}}</label>

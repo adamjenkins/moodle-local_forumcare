@@ -29,7 +29,9 @@
  * @return bool
  */
 function xmldb_local_forumcare_upgrade($oldversion) {
-    global $DB;
+    global $CFG, $DB;
+
+    require_once($CFG->dirroot . '/local/forumcare/db/upgradelib.php');
 
     $dbman = $DB->get_manager();
 
@@ -108,6 +110,14 @@ function xmldb_local_forumcare_upgrade($oldversion) {
         $rs->close();
 
         upgrade_plugin_savepoint(true, 2026100401, 'local', 'forumcare');
+    }
+
+    if ($oldversion < 2026101200) {
+        // The 2026100401 back-fill recorded an author's edit as the placeholder on posts edited
+        // while hidden under 1.1.3 or earlier (which then showed again): re-hide those posts.
+        local_forumcare_repair_hidden_placeholders();
+
+        upgrade_plugin_savepoint(true, 2026101200, 'local', 'forumcare');
     }
 
     return true;

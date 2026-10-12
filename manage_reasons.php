@@ -69,7 +69,7 @@ if ($delete) {
     if (helper::reason_has_reports($delete)) {
         redirect(
             $baseurl,
-            get_string('errorreasoninuse', 'local_forumcare', $reason->name),
+            get_string('errorreasoninuse', 'local_forumcare', s($reason->name)),
             null,
             \core\output\notification::NOTIFY_ERROR
         );
@@ -77,7 +77,7 @@ if ($delete) {
     if (!$confirm) {
         echo $OUTPUT->header();
         echo $OUTPUT->confirm(
-            get_string('deletereasonconfirm', 'local_forumcare', $reason->name),
+            get_string('deletereasonconfirm', 'local_forumcare', s($reason->name)),
             new moodle_url($baseurl, ['delete' => $delete, 'confirm' => 1, 'sesskey' => sesskey()]),
             $baseurl
         );
