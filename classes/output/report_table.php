@@ -35,6 +35,9 @@ class report_table extends \table_sql {
     /** @var bool Whether the current user can suspend a user site-wide. */
     protected $cansuspendsitewide;
 
+    /** @var int How long reviewed reports stay in the default view, in seconds. */
+    const RECENT_PERIOD = WEEKSECS;
+
     /** @var array Cache of forumid => cmid, to avoid repeated lookups per row. */
     protected $cmidcache = [];
 
@@ -46,8 +49,16 @@ class report_table extends \table_sql {
      * @param int $forumid 0 for all forums in the course.
      * @param int $reporterid 0 for all reporters.
      * @param int $reporteeid 0 for all reportees.
+     * @param bool $showall false to list only pending reports and those reviewed within RECENT_PERIOD.
      */
-    public function __construct(string $uniqueid, int $courseid, int $forumid, int $reporterid, int $reporteeid) {
+    public function __construct(
+        string $uniqueid,
+        int $courseid,
+        int $forumid,
+        int $reporterid,
+        int $reporteeid,
+        bool $showall = false
+    ) {
         parent::__construct($uniqueid);
 
         $this->courseid = $courseid;
@@ -56,8 +67,9 @@ class report_table extends \table_sql {
             \context_system::instance()
         );
 
-        $columns = ['post', 'forum', 'reporter', 'reportee', 'reason', 'reportcount', 'status', 'actions'];
+        $columns = ['timecreated', 'post', 'forum', 'reporter', 'reportee', 'reason', 'reportcount', 'status', 'actions'];
         $headers = [
+            get_string('timereported', 'local_forumcare'),
             get_string('post', 'local_forumcare'),
             get_string('forum', 'local_forumcare'),
             get_string('reporter', 'local_forumcare'),
@@ -75,7 +87,7 @@ class report_table extends \table_sql {
         // Actions is the one column with no sensible sort order at all.
         $this->no_sorting('actions');
 
-        [$fields, $from, $where, $params] = $this->build_query($courseid, $forumid, $reporterid, $reporteeid);
+        [$fields, $from, $where, $params] = $this->build_query($courseid, $forumid, $reporterid, $reporteeid, $showall);
         $this->set_sql($fields, $from, $where, $params);
     }
 
@@ -90,6 +102,7 @@ class report_table extends \table_sql {
      */
     public function get_sql_sort() {
         $columnexpressions = [
+            'timecreated' => ['r.timecreated'],
             'post' => ['p.subject'],
             'forum' => ['f.name'],
             'reporter' => ['reporter.lastname', 'reporter.firstname'],
@@ -132,9 +145,10 @@ class report_table extends \table_sql {
      * @param int $forumid
      * @param int $reporterid
      * @param int $reporteeid
+     * @param bool $showall
      * @return array [fields, from, where, params]
      */
-    protected function build_query(int $courseid, int $forumid, int $reporterid, int $reporteeid): array {
+    protected function build_query(int $courseid, int $forumid, int $reporterid, int $reporteeid, bool $showall): array {
         $reporterfields = \core_user\fields::for_name()->get_sql('reporter', false, 'reporter', '', false)->selects;
         $reporteefields = \core_user\fields::for_name()->get_sql('reportee', false, 'reportee', '', false)->selects;
         $fields = 'r.id, r.postid, r.discussionid, r.forumid, r.courseid, r.reporterid, r.reasonid, r.comment,
@@ -165,8 +179,23 @@ class report_table extends \table_sql {
             $where[] = 'p.userid = :reporteeid';
             $params['reporteeid'] = $reporteeid;
         }
+        if (!$showall) {
+            // Pending reports always show; closed ones only while recently reviewed.
+            $where[] = "(r.status = 'pending' OR COALESCE(r.timereviewed, r.timecreated) >= :recentsince)";
+            $params['recentsince'] = time() - self::RECENT_PERIOD;
+        }
 
         return [$fields, $from, implode(' AND ', $where), $params];
+    }
+
+    /**
+     * Render the date and time the report was made.
+     *
+     * @param \stdClass $row
+     * @return string
+     */
+    public function col_timecreated(\stdClass $row): string {
+        return userdate($row->timecreated, get_string('strftimedatetimeshort', 'core_langconfig'));
     }
 
     /**

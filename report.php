@@ -31,6 +31,7 @@ $courseid = required_param('courseid', PARAM_INT);
 $forumid = optional_param('forumid', 0, PARAM_INT);
 $reporterid = optional_param('reporterid', 0, PARAM_INT);
 $reporteeid = optional_param('reporteeid', 0, PARAM_INT);
+$showall = optional_param('showall', 0, PARAM_BOOL);
 
 $moderate = optional_param('moderate', '', PARAM_ALPHANUMEXT);
 $reportid = optional_param('reportid', 0, PARAM_INT);
@@ -99,6 +100,9 @@ foreach ($relevantusers as $u) {
 
 echo html_writer::start_tag('form', ['method' => 'get', 'action' => $baseurl->out(false), 'class' => 'mb-3 d-flex gap-2']);
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'courseid', 'value' => $courseid]);
+if ($showall) {
+    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'showall', 'value' => 1]);
+}
 
 echo html_writer::start_tag('div');
 echo html_writer::tag('label', get_string('filterforum', 'local_forumcare'), ['class' => 'me-1']);
@@ -118,8 +122,23 @@ echo html_writer::end_tag('div');
 echo html_writer::tag('button', get_string('applyfilter', 'local_forumcare'), ['type' => 'submit', 'class' => 'btn btn-secondary']);
 echo html_writer::end_tag('form');
 
-$table = new report_table('local-forumcare-reports', $courseid, $forumid, $reporterid, $reporteeid);
-$table->define_baseurl($baseurl);
+// Toggle between the default view (pending + recently reviewed) and every report.
+$filterparams = ['forumid' => $forumid, 'reporterid' => $reporterid, 'reporteeid' => $reporteeid];
+$filterparams = array_filter($filterparams);
+$toggleurl = new moodle_url($baseurl, $filterparams + ($showall ? [] : ['showall' => 1]));
+echo html_writer::start_div('mb-3 d-flex align-items-center gap-2');
+echo html_writer::link(
+    $toggleurl,
+    get_string($showall ? 'showrecent' : 'showall', 'local_forumcare'),
+    ['class' => 'btn btn-secondary']
+);
+if (!$showall) {
+    echo html_writer::span(get_string('showingrecent', 'local_forumcare'), 'text-muted');
+}
+echo html_writer::end_div();
+
+$table = new report_table('local-forumcare-reports', $courseid, $forumid, $reporterid, $reporteeid, (bool) $showall);
+$table->define_baseurl(new moodle_url($baseurl, $filterparams + ($showall ? ['showall' => 1] : [])));
 $table->out(25, false);
 
 echo $OUTPUT->footer();

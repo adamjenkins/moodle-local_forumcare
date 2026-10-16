@@ -17,7 +17,7 @@ A Moodle local plugin that lets students report problematic posts in `mod_forum`
 - **Moderators cannot be suspended**: site admins, holders of `local/forumcare:suspendsitewide`, and anyone with `local/forumcare:reviewreports` or `moodle/course:update` in the course are never suspended, by the automatic thresholds or by the manual suspend actions.
 - Only posts the reporter can actually see (groups, private replies, deleted posts) can be reported.
 - A hidden post stays hidden if its author edits it: the placeholder is put back and the edited text becomes the content "Mark as OK" restores.
-- **Teacher review queue** (`/local/forumcare/report.php`), filterable by forum/reporter/reportee, with the post title, forum name, and reporter/reportee names linking to the post, forum, and profile pages respectively. Reportable columns are independently sortable.
+- **Teacher review queue** (`/local/forumcare/report.php`), filterable by forum/reporter/reportee, showing pending reports and reports reviewed in the last 7 days by default (a "Show all reports" button lists the rest), with a "Reported" date/time column and the post title, forum name, and reporter/reportee names linking to the post, forum, and profile pages respectively. Reportable columns are independently sortable.
 - **Colour-coded moderator actions**: Mark as OK (green), Suspend in course / Suspend site-wide (red), Mark as frivolous / Hide post (yellow), and Undo review (revert a reviewed report back to pending).
 - Hidden-post placeholders are styled as Bootstrap info notices, with distinct wording for automatic (threshold-triggered) vs manual (teacher-clicked "Hide post") hides.
 - Full GDPR privacy provider (`core_privacy`).

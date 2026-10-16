@@ -4,6 +4,26 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.6] - 2026-10-16
+
+### Added
+
+- A sortable "Reported" column (date and time of the report) in the review
+  queue (new string `timereported`).
+- A "Show all reports" / "Show pending and recent only" toggle on the review
+  queue (new strings `showall`, `showrecent`, `showingrecent`).
+
+### Changed
+
+- The review queue lists pending reports and reports reviewed in the last
+  7 days by default; older reviewed and ignored reports appear under
+  "Show all reports".
+
+### Fixed
+
+- Paging and sorting the review queue no longer drop the forum, reporter and
+  reportee filters.
+
 ## [1.1.5] - 2026-10-12
 
 ### Added
