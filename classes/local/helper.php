@@ -525,6 +525,102 @@ class helper {
     }
 
     /**
+     * Forums in a course where a moderator may only see reports on their own
+     * groups' discussions: those in separate groups mode, when the user lacks
+     * moodle/site:accessallgroups in the forum. Mirrors mod_forum's own rule
+     * (forum_user_can_see_group_discussion): a discussion with groupid > 0 needs
+     * membership of that group, and "all participants" discussions are open.
+     *
+     * @param int $courseid
+     * @param int $userid
+     * @return array [int[] restricted forum ids, int[] ids of the user's groups in the course]
+     */
+    public static function get_group_restricted_forums(int $courseid, int $userid): array {
+        $modinfo = get_fast_modinfo($courseid, $userid);
+        $forumids = [];
+        foreach ($modinfo->get_instances_of('forum') as $forumid => $cm) {
+            if ($cm->effectivegroupmode != SEPARATEGROUPS) {
+                continue;
+            }
+            if (has_capability('moodle/site:accessallgroups', $cm->context, $userid)) {
+                continue;
+            }
+            $forumids[] = (int) $forumid;
+        }
+
+        $groupids = [];
+        if ($forumids) {
+            $groupids = array_map('intval', array_keys(groups_get_all_groups($courseid, $userid)));
+        }
+        return [$forumids, $groupids];
+    }
+
+    /**
+     * SQL condition limiting report rows to the discussions a moderator may see
+     * under separate groups (see get_group_restricted_forums()).
+     *
+     * @param int $courseid
+     * @param int $userid
+     * @param string $forumfield SQL expression holding the report's forum id.
+     * @param string $groupfield SQL expression holding the discussion's group id.
+     * @return array [string sql, array named params]
+     */
+    public static function get_group_restriction_sql(int $courseid, int $userid, string $forumfield, string $groupfield): array {
+        global $DB;
+
+        [$forumids, $groupids] = self::get_group_restricted_forums($courseid, $userid);
+        if (!$forumids) {
+            return ['1 = 1', []];
+        }
+
+        [$notinsql, $params] = $DB->get_in_or_equal($forumids, SQL_PARAMS_NAMED, 'fcgrpforum', false);
+        $conditions = ["$forumfield $notinsql", "$groupfield <= 0"];
+        if ($groupids) {
+            [$insql, $groupparams] = $DB->get_in_or_equal($groupids, SQL_PARAMS_NAMED, 'fcgrpgroup');
+            $conditions[] = "$groupfield $insql";
+            $params += $groupparams;
+        }
+        return ['(' . implode(' OR ', $conditions) . ')', $params];
+    }
+
+    /**
+     * Whether a moderator may see and act on a report, given the group mode of
+     * its forum (see get_group_restricted_forums()).
+     *
+     * @param \stdClass $report local_forumcare_report record
+     * @param int $userid
+     * @return bool
+     */
+    public static function can_moderate_report_group(\stdClass $report, int $userid): bool {
+        global $DB;
+
+        [$forumids, $groupids] = self::get_group_restricted_forums((int) $report->courseid, $userid);
+        if (!in_array((int) $report->forumid, $forumids, true)) {
+            return true;
+        }
+
+        $groupid = $DB->get_field('forum_discussions', 'groupid', ['id' => $report->discussionid]);
+        if ($groupid === false) {
+            return false;
+        }
+        return (int) $groupid <= 0 || in_array((int) $groupid, $groupids, true);
+    }
+
+    /**
+     * Throw unless a moderator may act on a report under its forum's group mode.
+     *
+     * @param \stdClass $report local_forumcare_report record
+     * @param int $userid
+     * @return void
+     * @throws \moodle_exception errorreportothergroup
+     */
+    public static function require_can_moderate_report_group(\stdClass $report, int $userid): void {
+        if (!self::can_moderate_report_group($report, $userid)) {
+            throw new \moodle_exception('errorreportothergroup', 'local_forumcare');
+        }
+    }
+
+    /**
      * Suspend a user's enrolment in a single course, across all of their
      * enrolment instances in that course.
      *

@@ -53,6 +53,7 @@ $string['errorforumcaredisabled'] = 'Reporting is not enabled for this forum.';
 $string['errorpostnotavailable'] = 'This post is not available to you.';
 $string['errorreasoninuse'] = 'The reason "{$a}" cannot be deleted because reports have been filed under it. Disable it instead to stop it being offered for new reports.';
 $string['errorreasonrequired'] = 'Please select a reason for this report.';
+$string['errorreportothergroup'] = 'This report is about a post in a group you do not have access to.';
 $string['eventposthidden'] = 'Forum post hidden';
 $string['eventpostreported'] = 'Forum post reported';
 $string['eventreportactioned'] = 'Forum report actioned';

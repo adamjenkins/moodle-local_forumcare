@@ -149,6 +149,8 @@ class report_table extends \table_sql {
      * @return array [fields, from, where, params]
      */
     protected function build_query(int $courseid, int $forumid, int $reporterid, int $reporteeid, bool $showall): array {
+        global $USER;
+
         $reporterfields = \core_user\fields::for_name()->get_sql('reporter', false, 'reporter', '', false)->selects;
         $reporteefields = \core_user\fields::for_name()->get_sql('reportee', false, 'reportee', '', false)->selects;
         $fields = 'r.id, r.postid, r.discussionid, r.forumid, r.courseid, r.reporterid, r.reasonid, r.comment,
@@ -162,10 +164,18 @@ class report_table extends \table_sql {
                  JOIN {forum} f ON f.id = r.forumid
                  JOIN {local_forumcare_reason} rs ON rs.id = r.reasonid
                  JOIN {user} reporter ON reporter.id = r.reporterid
-                 JOIN {user} reportee ON reportee.id = p.userid';
+                 JOIN {user} reportee ON reportee.id = p.userid
+            LEFT JOIN {forum_discussions} d ON d.id = r.discussionid';
 
-        $where = ['r.courseid = :courseid'];
-        $params = ['courseid' => $courseid];
+        // Under separate groups, a moderator without accessallgroups sees only their groups' reports.
+        [$groupsql, $groupparams] = \local_forumcare\local\helper::get_group_restriction_sql(
+            $courseid,
+            (int) $USER->id,
+            'r.forumid',
+            'd.groupid'
+        );
+        $where = ['r.courseid = :courseid', $groupsql];
+        $params = ['courseid' => $courseid] + $groupparams;
 
         if ($forumid) {
             $where[] = 'r.forumid = :forumid';

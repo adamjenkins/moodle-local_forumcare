@@ -70,6 +70,7 @@ class moderate_report extends external_api {
 
         self::validate_context($coursecontext);
         require_capability('local/forumcare:reviewreports', $coursecontext);
+        helper::require_can_moderate_report_group($report, (int) $USER->id);
 
         if ($params['action'] === 'suspend_site') {
             require_capability('local/forumcare:suspendsitewide', \context_system::instance());

@@ -58,6 +58,7 @@ if ($moderate !== '' && $reportid) {
     if (in_array($moderate, helper::VALID_MODERATION_ACTIONS, true)) {
         $report = $DB->get_record('local_forumcare_report', ['id' => $reportid], '*', MUST_EXIST);
         if ((int) $report->courseid === $courseid) {
+            helper::require_can_moderate_report_group($report, (int) $USER->id);
             try {
                 helper::apply_moderation($reportid, $moderate, $USER->id);
             } catch (moodle_exception $e) {
@@ -82,17 +83,26 @@ foreach ($forums as $forum) {
     $forumoptions[$forum->id] = format_string($forum->name);
 }
 
+// Only list reporters and reportees from reports this moderator may see under separate groups.
+[$groupsql1, $groupparams1] = helper::get_group_restriction_sql($courseid, (int) $USER->id, 'r.forumid', 'd.groupid');
+[$groupsql2, $groupparams2] = helper::get_group_restriction_sql($courseid, (int) $USER->id, 'r.forumid', 'd.groupid');
 $namefields = \core_user\fields::for_name()->get_sql('u', false, '', '', false)->selects;
 $userssql = "SELECT DISTINCT u.id, {$namefields}
                FROM {user} u
               WHERE u.id IN (
-                  SELECT r.reporterid FROM {local_forumcare_report} r WHERE r.courseid = :courseid1
+                  SELECT r.reporterid FROM {local_forumcare_report} r
+                  LEFT JOIN {forum_discussions} d ON d.id = r.discussionid
+                  WHERE r.courseid = :courseid1 AND {$groupsql1}
                   UNION
                   SELECT p.userid FROM {local_forumcare_report} r
                   JOIN {forum_posts} p ON p.id = r.postid
-                  WHERE r.courseid = :courseid2
+                  LEFT JOIN {forum_discussions} d ON d.id = r.discussionid
+                  WHERE r.courseid = :courseid2 AND {$groupsql2}
               )";
-$relevantusers = $DB->get_records_sql($userssql, ['courseid1' => $courseid, 'courseid2' => $courseid]);
+$relevantusers = $DB->get_records_sql(
+    $userssql,
+    ['courseid1' => $courseid, 'courseid2' => $courseid] + $groupparams1 + $groupparams2
+);
 $useroptions = [0 => get_string('allusers', 'local_forumcare')];
 foreach ($relevantusers as $u) {
     $useroptions[$u->id] = fullname($u);
