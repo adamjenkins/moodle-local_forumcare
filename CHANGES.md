@@ -6,7 +6,7 @@
   strings (one per line, up to 200) and an AutoReport switch, off by
   default. A scheduled task scans new forum posts in forums that use forum
   care and reports any post containing one of the strings under that
-  reason, for example "fuck" under "Offensive language" or "As an AI"
+  reason, for example "buy now" under "Spam" or "As an AI"
   under "Overuse of AI". Matching ignores case and extra spaces. Each post
   is scanned once, after the forum editing time, and existing posts are
   worked through gradually (at most 10,000 per run) when AutoReport is

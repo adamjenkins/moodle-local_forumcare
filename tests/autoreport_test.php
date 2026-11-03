@@ -116,17 +116,17 @@ final class autoreport_test extends \advanced_testcase {
     }
 
     public function test_parse_and_match(): void {
-        $strings = autoreport::parse_strings("  As an   AI \r\n\nas an ai\nfuck\n");
-        $this->assertSame(['As an AI', 'fuck'], $strings);
+        $strings = autoreport::parse_strings("  As an   AI \r\n\nas an ai\nspam\n");
+        $this->assertSame(['As an AI', 'spam'], $strings);
 
         $text = autoreport::normalise_text('Essay', '<p>Well, AS AN</p><p>ai language model&nbsp;I think</p>');
         $this->assertSame(['As an AI'], autoreport::find_matches($text, $strings));
-        $this->assertSame(['fuck'], autoreport::find_matches(autoreport::normalise_text('', 'What the FUCKING hell'), $strings));
+        $this->assertSame(['spam'], autoreport::find_matches(autoreport::normalise_text('', 'Stop SPAMMING the forum'), $strings));
         $this->assertSame([], autoreport::find_matches(autoreport::normalise_text('', 'A fine answer'), $strings));
     }
 
     public function test_matching_post_is_reported_once(): void {
-        $reason = $this->reason("As an AI\nfuck");
+        $reason = $this->reason("As an AI\nspam");
         $bad = $this->post('<p>As an AI language model, I cannot...</p>');
         $good = $this->post('<p>My own thoughts.</p>');
 
@@ -151,8 +151,8 @@ final class autoreport_test extends \advanced_testcase {
     }
 
     public function test_nothing_queued_while_off_then_backlog_scanned(): void {
-        $off = $this->reason('fuck', ['autoreport' => 0]);
-        $old = $this->post('fuck this');
+        $off = $this->reason('spam', ['autoreport' => 0]);
+        $old = $this->post('spam for sale');
 
         $this->run_autoreport();
         $this->assertSame([], $this->autoreports());
@@ -166,10 +166,10 @@ final class autoreport_test extends \advanced_testcase {
     }
 
     public function test_skips_disabled_reasons_other_forums_and_recent_posts(): void {
-        $this->reason('fuck', ['enabled' => 0]);
+        $this->reason('spam', ['enabled' => 0]);
         $this->reason('As an AI');
         $plainforum = $this->getDataGenerator()->create_module('forum', ['course' => $this->course->id]);
-        $disabledreasonpost = $this->post('fuck');
+        $disabledreasonpost = $this->post('spam');
         $otherforumpost = $this->post('As an AI', $plainforum);
 
         $this->run_autoreport();
@@ -201,8 +201,8 @@ final class autoreport_test extends \advanced_testcase {
     public function test_autoreport_counts_towards_hide_threshold(): void {
         global $DB;
         set_config('threshold_hide', 1, 'local_forumcare');
-        $this->reason('fuck');
-        $post = $this->post('fuck');
+        $this->reason('spam');
+        $post = $this->post('spam');
 
         $this->run_autoreport();
         $this->assertTrue($DB->record_exists('local_forumcare_hidden', ['postid' => $post->id]));
@@ -210,8 +210,8 @@ final class autoreport_test extends \advanced_testcase {
 
     public function test_forum_without_course_module_is_skipped_not_half_reported(): void {
         global $DB;
-        $this->reason('fuck');
-        $orphan = $this->post('fuck');
+        $this->reason('spam');
+        $orphan = $this->post('spam');
         $DB->delete_records('course_modules', ['id' => $this->forum->cmid]);
         \course_modinfo::purge_course_cache($this->course->id);
 
@@ -242,8 +242,8 @@ final class autoreport_test extends \advanced_testcase {
     public function test_review_queue_source_filter(): void {
         global $DB;
         $this->setAdminUser();
-        $reason = $this->reason('fuck');
-        $auto = $this->post('fuck');
+        $reason = $this->reason('spam');
+        $auto = $this->post('spam');
         $human = $this->post('A rude post with no telltale string');
         $this->run_autoreport();
         $reporter = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
@@ -271,8 +271,8 @@ final class autoreport_test extends \advanced_testcase {
 
     public function test_review_queue_shows_autoreport_reporter(): void {
         $this->setAdminUser();
-        $this->reason('fuck');
-        $this->post('fuck');
+        $this->reason('spam');
+        $this->post('spam');
         $this->run_autoreport();
 
         $table = new \local_forumcare\output\report_table('t', (int) $this->course->id, 0, 0, 0, true);
