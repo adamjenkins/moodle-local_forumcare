@@ -1,10 +1,25 @@
 # Changes
 
-## v1.1.6
+## v1.2.0
 
-- The teacher review queue has a "Reported" column with the date and time
-  each report was made (sortable).
-- The review queue now shows, by default, every pending report (however old)
-  and reports reviewed in the last 7 days. A "Show all reports" button lists
-  every report; "Show pending and recent only" goes back. Paging and sorting
-  keep the forum/reporter/reportee filters.
+- **AutoReport.** Each report reason can now have a list of telltale
+  strings (one per line, up to 200) and an AutoReport switch, off by
+  default. A scheduled task scans new forum posts in forums that use forum
+  care and reports any post containing one of the strings under that
+  reason, for example "fuck" under "Offensive language" or "As an AI"
+  under "Overuse of AI". Matching ignores case and extra spaces. Each post
+  is scanned once, after the forum editing time, and existing posts are
+  worked through gradually (at most 10,000 per run) when AutoReport is
+  switched on part-way through a term. Automatic reports show
+  "AutoReport" as the reporter, list the matched strings, and count
+  towards the hide and suspend thresholds like any other report.
+- A "Report type" filter on the review queue: all reports, AutoReport
+  only, or reports by people only.
+- Moderation actions return to the same filtered view of the review queue.
+- Separate groups are respected: a moderator without "Access all groups"
+  sees and can act on only reports in their own groups and in
+  all-participants discussions.
+- Reports whose reporter was removed by a privacy request stay in the
+  queue (shown as "Unknown user") instead of disappearing.
+- Post excerpts in the queue no longer show HTML entities such as
+  `&nbsp;`.

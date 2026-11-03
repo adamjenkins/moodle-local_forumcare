@@ -4,7 +4,7 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [1.2.0] - 2026-11-03
 
 ### Added
 
@@ -29,6 +29,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Moderation actions in the review queue return to the same filtered view
   (forum, reporter, reportee, report type, show all) instead of the
   unfiltered default.
+
+### Security
+
+- Separate groups are respected in the review queue and in moderation: a
+  moderator without `moodle/site:accessallgroups` sees and can act on only
+  reports about all-participants discussions and their own groups'
+  discussions, in the queue, its reporter/reportee filters, `report.php`
+  and the `moderate_report` web service (new string `errorreportothergroup`).
 
 ## [1.1.6] - 2026-10-16
 

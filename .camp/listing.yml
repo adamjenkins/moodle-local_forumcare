@@ -2,15 +2,19 @@
 # Edit freely and commit; camp ingests this file at each tagged release.
 # Schema: https://camp-registry.org/schema/listing.schema.json
 name: local_forumcare
-summary: A Moodle local plugin that lets students report problematic posts in `mod_forum` forums, with configurable auto-moderation (hide posts, suspend users) and a teacher review queue.
+summary: 'Lets students report problematic `mod_forum` posts, reports posts with telltale strings automatically, and adds auto-moderation (hide posts, suspend users) and a teacher review queue.'
 description: |
   Students report problematic posts via a link placed first in every forum
   post's action menu (so it is not mistaken for Reply), in a dialog that
-  says plainly it is a report, not a reply, choosing from configurable report reasons (site-wide or
-  per-course). Thresholds can auto-hide a post after N open reports and
-  auto-suspend repeat offenders — counting distinct reporters, so one person
-  cannot trigger it alone — with a teacher review queue behind it. Reporting is
-  opt-in per forum, under a site-wide master switch.
+  says plainly it is a report, not a reply, choosing from configurable report
+  reasons (site-wide or per-course). AutoReport can also report posts
+  automatically: give a reason telltale strings such as "As an AI" or a banned
+  word, and a scheduled task checks each new post once and files a report when
+  one matches. Thresholds can auto-hide a post after N open reports and
+  auto-suspend repeat offenders (counting distinct reporters, so one person
+  cannot trigger it alone), with a teacher review queue behind it, filterable
+  by forum, people and report type. Reporting is opt-in per forum, under a
+  site-wide master switch.
 labels:
   # Required disclosure labels — pick all that apply (RFC §4.7):
   #   fully-free | freemium | paid-service | external-account
@@ -27,6 +31,10 @@ screenshots:
     caption: 'The report dialog: a flag and a notice that this is a report, not a reply, then a reason and an optional comment'
   - path: .camp/screenshots/05-hidden-post.png
     caption: 'A hidden post: its message is replaced by "This post has been hidden by a moderator."'
+  - path: .camp/screenshots/06-autoreport-reason.png
+    caption: 'AutoReport on a report reason: posts containing any of these strings are reported automatically'
+  - path: .camp/screenshots/07-autoreport-queue.png
+    caption: 'The review queue with AutoReport reports, the strings that matched, and the report type filter'
 # links:
 #   docs: https://…
 #   issues: https://…

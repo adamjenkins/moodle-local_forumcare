@@ -28,5 +28,5 @@ $plugin->component = 'local_forumcare';
 $plugin->version   = 2026110300;
 $plugin->requires  = 2025041400;
 $plugin->supported = [500, 503];
-$plugin->release   = '1.1.6';
+$plugin->release   = '1.2.0';
 $plugin->maturity  = MATURITY_BETA;
