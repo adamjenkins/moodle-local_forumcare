@@ -307,6 +307,44 @@ class helper {
     }
 
     /**
+     * Check report thresholds against the post and its author, and apply
+     * automatic enforcement (hide post / suspend enrolment) if reached.
+     *
+     * @param \stdClass $post
+     * @param \stdClass $discussion
+     * @return void
+     */
+    public static function enforce_thresholds(\stdClass $post, \stdClass $discussion): void {
+        $hidethreshold = self::get_threshold($discussion->forum, 'threshold_hide');
+        if ($hidethreshold > 0 && self::count_open_reports_for_post($post->id) >= $hidethreshold) {
+            self::hide_post($post->id, 0, true);
+        }
+
+        // Course moderators and site admins are never suspension targets, so
+        // reporters cannot use the thresholds to lock out the people reviewing them.
+        if (self::is_protected_from_suspension((int) $post->userid, (int) $discussion->course)) {
+            return;
+        }
+
+        $coursesuspendthreshold = self::get_threshold($discussion->forum, 'threshold_suspend');
+        if ($coursesuspendthreshold > 0) {
+            $count = self::count_open_reports_against_user_in_course($post->userid, $discussion->course);
+            if ($count >= $coursesuspendthreshold) {
+                self::suspend_course($post->userid, $discussion->course, 0, true);
+            }
+        }
+
+        // Site-wide auto-suspension is deliberately admin-only and not overridable per-forum.
+        $sitewidethreshold = (int) get_config('local_forumcare', 'threshold_suspend_sitewide');
+        if ($sitewidethreshold > 0) {
+            $count = self::count_open_reports_against_user_sitewide($post->userid);
+            if ($count >= $sitewidethreshold) {
+                self::suspend_sitewide($post->userid, 0, true);
+            }
+        }
+    }
+
+    /**
      * Hide a post: back up its original content and overwrite it with a placeholder.
      * No-op if the post is already hidden.
      *

@@ -26,6 +26,7 @@
 require_once(__DIR__ . '/../../config.php');
 
 use local_forumcare\forms\reason_form;
+use local_forumcare\local\autoreport;
 use local_forumcare\local\helper;
 
 $courseid = optional_param('courseid', 0, PARAM_INT);
@@ -110,6 +111,9 @@ if ($form->is_cancelled()) {
     $record->courseid = $iscoursescope ? $courseid : null;
     $record->enabled = !empty($data->enabled) ? 1 : 0;
     $record->sortorder = $data->sortorder;
+    $record->autoreport = !empty($data->autoreport) ? 1 : 0;
+    // Store the cleaned list (trimmed, one per line, no blanks or repeats).
+    $record->autoreportstrings = implode("\n", autoreport::parse_strings($data->autoreportstrings ?? ''));
 
     if (!empty($data->id)) {
         // Re-confirm the existing row is actually in this scope before overwriting it.
@@ -162,12 +166,14 @@ $table->head = [
     get_string('reasonname', 'local_forumcare'),
     get_string('enabled', 'local_forumcare'),
     get_string('sortorder', 'local_forumcare'),
+    get_string('autoreport', 'local_forumcare'),
     get_string('actions', 'local_forumcare'),
 ];
 
 foreach ($reasons as $r) {
     $editurl = new moodle_url($baseurl, ['id' => $r->id]);
     $deleteurl = new moodle_url($baseurl, ['delete' => $r->id, 'sesskey' => sesskey()]);
+    $stringcount = count(autoreport::parse_strings((string) $r->autoreportstrings));
     $actions = html_writer::link($editurl, get_string('editreason', 'local_forumcare')) . ' | ' .
         html_writer::link($deleteurl, get_string('deletereason', 'local_forumcare'));
 
@@ -175,6 +181,7 @@ foreach ($reasons as $r) {
         s($r->name),
         $r->enabled ? get_string('yes') : get_string('no'),
         $r->sortorder,
+        $r->autoreport ? get_string('autoreportcount', 'local_forumcare', $stringcount) : get_string('no'),
         $actions,
     ];
 }

@@ -32,6 +32,16 @@ $forumid = optional_param('forumid', 0, PARAM_INT);
 $reporterid = optional_param('reporterid', 0, PARAM_INT);
 $reporteeid = optional_param('reporteeid', 0, PARAM_INT);
 $showall = optional_param('showall', 0, PARAM_BOOL);
+$source = optional_param('source', report_table::SOURCE_ALL, PARAM_ALPHA);
+if (!in_array($source, report_table::SOURCES, true)) {
+    $source = report_table::SOURCE_ALL;
+}
+
+// The queue's current filters, carried through paging, sorting, the toggle and moderation actions.
+$filterparams = array_filter(['forumid' => $forumid, 'reporterid' => $reporterid, 'reporteeid' => $reporteeid]);
+if ($source !== report_table::SOURCE_ALL) {
+    $filterparams['source'] = $source;
+}
 
 $moderate = optional_param('moderate', '', PARAM_ALPHANUMEXT);
 $reportid = optional_param('reportid', 0, PARAM_INT);
@@ -50,6 +60,7 @@ $PAGE->set_heading($course->fullname);
 
 if ($moderate !== '' && $reportid) {
     require_sesskey();
+    $returnurl = new moodle_url($baseurl, $filterparams + ($showall ? ['showall' => 1] : []));
 
     if ($moderate === 'suspend_site') {
         require_capability('local/forumcare:suspendsitewide', context_system::instance());
@@ -65,12 +76,12 @@ if ($moderate !== '' && $reportid) {
                 if ($e->errorcode !== 'errorcannotsuspendprivileged') {
                     throw $e;
                 }
-                redirect($baseurl, $e->getMessage(), null, \core\output\notification::NOTIFY_ERROR);
+                redirect($returnurl, $e->getMessage(), null, \core\output\notification::NOTIFY_ERROR);
             }
         }
     }
 
-    redirect($baseurl, get_string('actiondone', 'local_forumcare'), null, \core\output\notification::NOTIFY_SUCCESS);
+    redirect($returnurl, get_string('actiondone', 'local_forumcare'), null, \core\output\notification::NOTIFY_SUCCESS);
 }
 
 echo $OUTPUT->header();
@@ -129,12 +140,20 @@ echo html_writer::tag('label', get_string('filterreportee', 'local_forumcare'), 
 echo html_writer::select($useroptions, 'reporteeid', $reporteeid, false);
 echo html_writer::end_tag('div');
 
+$sourceoptions = [
+    report_table::SOURCE_ALL => get_string('filtersource:all', 'local_forumcare'),
+    report_table::SOURCE_AUTO => get_string('filtersource:auto', 'local_forumcare'),
+    report_table::SOURCE_HUMAN => get_string('filtersource:human', 'local_forumcare'),
+];
+echo html_writer::start_tag('div');
+echo html_writer::tag('label', get_string('filtersource', 'local_forumcare'), ['class' => 'me-1', 'for' => 'menusource']);
+echo html_writer::select($sourceoptions, 'source', $source, false);
+echo html_writer::end_tag('div');
+
 echo html_writer::tag('button', get_string('applyfilter', 'local_forumcare'), ['type' => 'submit', 'class' => 'btn btn-secondary']);
 echo html_writer::end_tag('form');
 
 // Toggle between the default view (pending + recently reviewed) and every report.
-$filterparams = ['forumid' => $forumid, 'reporterid' => $reporterid, 'reporteeid' => $reporteeid];
-$filterparams = array_filter($filterparams);
 $toggleurl = new moodle_url($baseurl, $filterparams + ($showall ? [] : ['showall' => 1]));
 echo html_writer::start_div('mb-3 d-flex align-items-center gap-2');
 echo html_writer::link(
@@ -147,8 +166,9 @@ if (!$showall) {
 }
 echo html_writer::end_div();
 
-$table = new report_table('local-forumcare-reports', $courseid, $forumid, $reporterid, $reporteeid, (bool) $showall);
+$table = new report_table('local-forumcare-reports', $courseid, $forumid, $reporterid, $reporteeid, (bool) $showall, $source);
 $table->define_baseurl(new moodle_url($baseurl, $filterparams + ($showall ? ['showall' => 1] : [])));
+$table->set_return_params($filterparams + ($showall ? ['showall' => 1] : []));
 $table->out(25, false);
 
 echo $OUTPUT->footer();

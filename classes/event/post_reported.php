@@ -45,6 +45,9 @@ class post_reported extends \core\event\base {
      * @return string
      */
     public function get_description() {
+        if (!empty($this->other['autoreport'])) {
+            return "AutoReport reported the forum post with id '{$this->other['postid']}'.";
+        }
         return "The user with id '$this->userid' reported the forum post with id '{$this->other['postid']}'.";
     }
 

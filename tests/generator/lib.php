@@ -25,7 +25,7 @@ class local_forumcare_generator extends component_generator_base {
     /**
      * Create a report reason: site-wide when no courseid is given, otherwise for that course.
      *
-     * @param array $record name (required), courseid, enabled, sortorder
+     * @param array $record name (required), courseid, enabled, sortorder, autoreport, autoreportstrings
      * @return stdClass The reason record.
      */
     public function create_reason(array $record): stdClass {
@@ -36,6 +36,8 @@ class local_forumcare_generator extends component_generator_base {
             'enabled' => isset($record['enabled']) ? (int) (bool) $record['enabled'] : 1,
             'sortorder' => (int) ($record['sortorder'] ?? 0),
             'timecreated' => time(),
+            'autoreport' => empty($record['autoreport']) ? 0 : 1,
+            'autoreportstrings' => $record['autoreportstrings'] ?? null,
         ];
         $reason->id = $DB->insert_record('local_forumcare_reason', $reason);
         return $reason;

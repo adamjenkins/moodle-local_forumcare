@@ -4,6 +4,32 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Added
+
+- AutoReport: each report reason has an AutoReport switch (off by default)
+  and a list of telltale strings, one per line. A scheduled task
+  (`\local_forumcare\task\autoreport`) queues ad hoc scans
+  (`\local_forumcare\task\autoreport_scan_posts`) of the posts written since
+  its last run, in blocks of 500 posts (at most 20 per run), and reports
+  matching posts as "AutoReport". New fields `autoreport` and
+  `autoreportstrings` on `local_forumcare_reason`; new strings `autoreport*`,
+  `errorautoreportnostrings`, `errorautoreporttoomany`, `taskautoreport`.
+  A reason holds at most 200 strings.
+- A "Report type" filter on the review queue: all reports, AutoReport only,
+  or reports by people only (new strings `filtersource*`).
+
+### Fixed
+
+- The review queue no longer drops reports whose reporter was anonymised by
+  a privacy deletion; the reporter shows as "Unknown user".
+- The review queue's post excerpt no longer shows HTML entities such as
+  `&nbsp;` literally.
+- Moderation actions in the review queue return to the same filtered view
+  (forum, reporter, reportee, report type, show all) instead of the
+  unfiltered default.
+
 ## [1.1.6] - 2026-10-16
 
 ### Added

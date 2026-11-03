@@ -133,4 +133,35 @@ final class report_table_test extends \advanced_testcase {
         $expected = userdate($time, get_string('strftimedatetimeshort', 'core_langconfig'));
         $this->assertSame($expected, $table->col_timecreated((object) ['timecreated' => $time]));
     }
+
+    /**
+     * Moderation action links carry the queue's filters, so the teacher returns to the same view.
+     */
+    public function test_action_links_keep_filters(): void {
+        $table = new report_table('test-forumcare-reports', (int) $this->course->id, 0, 0, 0, true, report_table::SOURCE_AUTO);
+        $table->set_return_params(['forumid' => 7, 'source' => 'auto', 'showall' => 1]);
+        $html = $table->col_actions((object) ['id' => 5, 'courseid' => $this->course->id, 'status' => 'reviewed']);
+        $this->assertMatchesRegularExpression('/href="[^"]*report\.php\?[^"]*forumid=7[^"]*"/', $html);
+        $this->assertStringContainsString('source=auto', $html);
+        $this->assertStringContainsString('showall=1', $html);
+        $this->assertStringContainsString('moderate=undo', $html);
+        $this->assertStringContainsString('reportid=5', $html);
+    }
+
+    /**
+     * The post excerpt decodes HTML entities instead of showing them literally, and stays escaped.
+     */
+    public function test_post_column_decodes_entities(): void {
+        $table = new report_table('test-forumcare-reports', (int) $this->course->id, 0, 0, 0, true);
+        $html = $table->col_post((object) [
+            'postdeleted' => 0,
+            'message' => '<p>As an <em>AI</em>&nbsp;model, Tom &amp; Jerry say &lt;b&gt;</p>',
+            'discussionid' => 1,
+            'postid' => 2,
+            'subject' => 'Essay',
+        ]);
+        $this->assertStringNotContainsString('&amp;nbsp;', $html);
+        $this->assertStringNotContainsString('&amp;amp;', $html);
+        $this->assertStringContainsString("As an AI\u{00A0}model, Tom &amp; Jerry say &lt;b&gt;", $html);
+    }
 }

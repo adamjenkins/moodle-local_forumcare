@@ -6,6 +6,7 @@ A Moodle local plugin that lets students report problematic posts in `mod_forum`
 
 - **"Report this post" / "Post reported" link** injected at the start of every forum post's action menu, to the left of Permalink, Edit and Reply so it is not mistaken for Reply (mod_forum has no native hook for this, so it's added client-side via a `core/modal_save_cancel` modal that opens with a flag icon and a notice that this is a report, not a reply). The link is omitted entirely on a user's own posts, and replaced with an unlinked "Post reported" label on posts they've already reported.
 - **Configurable report reasons**, either site-wide defaults or overridden per course (e.g. "Offensive language", "Overuse of AI").
+- **AutoReport** — a reason can carry a list of telltale strings (one per line, e.g. a swear word, or "As an AI" for an "Overuse of AI" reason) and an AutoReport switch (off by default). A scheduled task (every 15 minutes) hands the forum posts written since its last run to ad hoc tasks in blocks of 500 posts, at most 20 blocks (10,000 posts) per run, so each post is scanned once and switching AutoReport on late in a term works through the existing posts gradually instead of all at once. A post whose subject or text contains a string (case-insensitive, also inside longer words) gets one report under that reason with "AutoReport" as the reporter and the matched strings as the comment; it counts towards the hide/suspend thresholds like any other report. Posts are scanned once the forum editing time has passed, so the final text is checked. A reason holds at most 200 strings. Each automatic report, its event and any threshold action are saved together or not at all.
 - **Per-forum opt-in** — reporting is disabled by default for every forum; a teacher/manager enables it (and may override the site-wide thresholds) from a "Forum care" section embedded directly in the forum's own *Edit settings* page.
 - **Site-wide master switch** in Site administration, independent of the per-forum opt-in.
 - **Configurable thresholds**:
@@ -17,7 +18,7 @@ A Moodle local plugin that lets students report problematic posts in `mod_forum`
 - **Moderators cannot be suspended**: site admins, holders of `local/forumcare:suspendsitewide`, and anyone with `local/forumcare:reviewreports` or `moodle/course:update` in the course are never suspended, by the automatic thresholds or by the manual suspend actions.
 - Only posts the reporter can actually see (groups, private replies, deleted posts) can be reported.
 - A hidden post stays hidden if its author edits it: the placeholder is put back and the edited text becomes the content "Mark as OK" restores.
-- **Teacher review queue** (`/local/forumcare/report.php`), filterable by forum/reporter/reportee, showing pending reports and reports reviewed in the last 7 days by default (a "Show all reports" button lists the rest), with a "Reported" date/time column and the post title, forum name, and reporter/reportee names linking to the post, forum, and profile pages respectively. Reportable columns are independently sortable.
+- **Teacher review queue** (`/local/forumcare/report.php`), filterable by forum/reporter/reportee and by report type (all, AutoReport only, or reports by people only), showing pending reports and reports reviewed in the last 7 days by default (a "Show all reports" button lists the rest), with a "Reported" date/time column and the post title, forum name, and reporter/reportee names linking to the post, forum, and profile pages respectively. Reportable columns are independently sortable.
 - **Colour-coded moderator actions**: Mark as OK (green), Suspend in course / Suspend site-wide (red), Mark as frivolous / Hide post (yellow), and Undo review (revert a reviewed report back to pending).
 - Hidden-post placeholders are styled as Bootstrap info notices, with distinct wording for automatic (threshold-triggered) vs manual (teacher-clicked "Hide post") hides.
 - Full GDPR privacy provider (`core_privacy`).
@@ -60,6 +61,7 @@ Hidden posts keep a backup of their original content (so it can be restored when
 ## Known limitations
 
 - Post deletion is intentionally **not** implemented by this plugin. A moderator deleting post content should use `mod_forum`'s own existing delete-post flow (requires `mod/forum:deleteanypost`).
+- AutoReport scans each post once. Posts edited after their scan, posts in forums that turn on forum care later, and strings added to a reason later are not checked against posts already scanned.
 - Manually undoing a review (the "Undo review" action) resets the report back to `pending` but does **not** reverse any side effect already taken, e.g. an enrolment suspension — only the report's own status/outcome.
 
 ## Development

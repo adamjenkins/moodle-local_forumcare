@@ -125,48 +125,10 @@ class submit_report extends external_api {
         $event->trigger();
 
         if (!$isblocked) {
-            self::enforce_thresholds($post, $discussion);
+            helper::enforce_thresholds($post, $discussion);
         }
 
         return ['success' => true];
-    }
-
-    /**
-     * Check report thresholds against the post and its author, and apply
-     * automatic enforcement (hide post / suspend enrolment) if reached.
-     *
-     * @param \stdClass $post
-     * @param \stdClass $discussion
-     * @return void
-     */
-    private static function enforce_thresholds(\stdClass $post, \stdClass $discussion): void {
-        $hidethreshold = helper::get_threshold($discussion->forum, 'threshold_hide');
-        if ($hidethreshold > 0 && helper::count_open_reports_for_post($post->id) >= $hidethreshold) {
-            helper::hide_post($post->id, 0, true);
-        }
-
-        // Course moderators and site admins are never suspension targets, so
-        // reporters cannot use the thresholds to lock out the people reviewing them.
-        if (helper::is_protected_from_suspension((int) $post->userid, (int) $discussion->course)) {
-            return;
-        }
-
-        $coursesuspendthreshold = helper::get_threshold($discussion->forum, 'threshold_suspend');
-        if ($coursesuspendthreshold > 0) {
-            $count = helper::count_open_reports_against_user_in_course($post->userid, $discussion->course);
-            if ($count >= $coursesuspendthreshold) {
-                helper::suspend_course($post->userid, $discussion->course, 0, true);
-            }
-        }
-
-        // Site-wide auto-suspension is deliberately admin-only and not overridable per-forum.
-        $sitewidethreshold = (int) get_config('local_forumcare', 'threshold_suspend_sitewide');
-        if ($sitewidethreshold > 0) {
-            $count = helper::count_open_reports_against_user_sitewide($post->userid);
-            if ($count >= $sitewidethreshold) {
-                helper::suspend_sitewide($post->userid, 0, true);
-            }
-        }
     }
 
     /**

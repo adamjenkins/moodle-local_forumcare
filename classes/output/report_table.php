@@ -38,6 +38,21 @@ class report_table extends \table_sql {
     /** @var int How long reviewed reports stay in the default view, in seconds. */
     const RECENT_PERIOD = WEEKSECS;
 
+    /** @var string Report type filter: every report. */
+    const SOURCE_ALL = 'all';
+
+    /** @var string Report type filter: AutoReport's reports only. */
+    const SOURCE_AUTO = 'auto';
+
+    /** @var string Report type filter: reports filed by people only. */
+    const SOURCE_HUMAN = 'human';
+
+    /** @var string[] The valid report type filters. */
+    const SOURCES = [self::SOURCE_ALL, self::SOURCE_AUTO, self::SOURCE_HUMAN];
+
+    /** @var array Queue filters added to the moderation action links, so the teacher comes back to the same view. */
+    protected $returnparams = [];
+
     /** @var array Cache of forumid => cmid, to avoid repeated lookups per row. */
     protected $cmidcache = [];
 
@@ -50,6 +65,7 @@ class report_table extends \table_sql {
      * @param int $reporterid 0 for all reporters.
      * @param int $reporteeid 0 for all reportees.
      * @param bool $showall false to list only pending reports and those reviewed within RECENT_PERIOD.
+     * @param string $source One of self::SOURCES: every report, AutoReport only, or people only.
      */
     public function __construct(
         string $uniqueid,
@@ -57,7 +73,8 @@ class report_table extends \table_sql {
         int $forumid,
         int $reporterid,
         int $reporteeid,
-        bool $showall = false
+        bool $showall = false,
+        string $source = self::SOURCE_ALL
     ) {
         parent::__construct($uniqueid);
 
@@ -87,8 +104,19 @@ class report_table extends \table_sql {
         // Actions is the one column with no sensible sort order at all.
         $this->no_sorting('actions');
 
-        [$fields, $from, $where, $params] = $this->build_query($courseid, $forumid, $reporterid, $reporteeid, $showall);
+        [$fields, $from, $where, $params] = $this->build_query($courseid, $forumid, $reporterid, $reporteeid, $showall, $source);
         $this->set_sql($fields, $from, $where, $params);
+    }
+
+    /**
+     * Set the queue filters (forumid, reporterid, reporteeid, source, showall) that the
+     * moderation action links carry, so report.php can redirect back to the same view.
+     *
+     * @param array $params
+     * @return void
+     */
+    public function set_return_params(array $params): void {
+        $this->returnparams = $params;
     }
 
     /**
@@ -146,9 +174,17 @@ class report_table extends \table_sql {
      * @param int $reporterid
      * @param int $reporteeid
      * @param bool $showall
+     * @param string $source One of self::SOURCES.
      * @return array [fields, from, where, params]
      */
-    protected function build_query(int $courseid, int $forumid, int $reporterid, int $reporteeid, bool $showall): array {
+    protected function build_query(
+        int $courseid,
+        int $forumid,
+        int $reporterid,
+        int $reporteeid,
+        bool $showall,
+        string $source = self::SOURCE_ALL
+    ): array {
         global $USER;
 
         $reporterfields = \core_user\fields::for_name()->get_sql('reporter', false, 'reporter', '', false)->selects;
@@ -163,7 +199,7 @@ class report_table extends \table_sql {
                  JOIN {forum_posts} p ON p.id = r.postid
                  JOIN {forum} f ON f.id = r.forumid
                  JOIN {local_forumcare_reason} rs ON rs.id = r.reasonid
-                 JOIN {user} reporter ON reporter.id = r.reporterid
+            LEFT JOIN {user} reporter ON reporter.id = r.reporterid
                  JOIN {user} reportee ON reportee.id = p.userid
             LEFT JOIN {forum_discussions} d ON d.id = r.discussionid';
 
@@ -188,6 +224,13 @@ class report_table extends \table_sql {
         if ($reporteeid) {
             $where[] = 'p.userid = :reporteeid';
             $params['reporteeid'] = $reporteeid;
+        }
+        if ($source === self::SOURCE_AUTO) {
+            $where[] = 'r.reporterid = :autoreporter';
+            $params['autoreporter'] = \local_forumcare\local\autoreport::REPORTER_ID;
+        } else if ($source === self::SOURCE_HUMAN) {
+            $where[] = 'r.reporterid <> :autoreporter';
+            $params['autoreporter'] = \local_forumcare\local\autoreport::REPORTER_ID;
         }
         if (!$showall) {
             // Pending reports always show; closed ones only while recently reviewed.
@@ -216,7 +259,12 @@ class report_table extends \table_sql {
      * @return string
      */
     public function col_post(\stdClass $row): string {
-        $text = $row->postdeleted ? get_string('outcome:deleted', 'local_forumcare') : shorten_text(strip_tags($row->message), 100);
+        if ($row->postdeleted) {
+            $text = get_string('outcome:deleted', 'local_forumcare');
+        } else {
+            // Shorten while still HTML, then decode entities (&nbsp;, &amp;) so s() does not show them literally.
+            $text = html_entity_decode(shorten_text(strip_tags($row->message), 100), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
 
         $posturl = new \moodle_url('/mod/forum/discuss.php', ['d' => $row->discussionid], 'p' . $row->postid);
         $subject = \html_writer::link($posturl, format_string($row->subject));
@@ -247,6 +295,13 @@ class report_table extends \table_sql {
      * @return string
      */
     public function col_reporter(\stdClass $row): string {
+        if ((int) $row->reporterid === \local_forumcare\local\autoreport::REPORTER_ID) {
+            return \html_writer::span(get_string('autoreportreporter', 'local_forumcare'), 'badge bg-info');
+        }
+        if (empty($row->reporterid) || $row->reporterfirstname === null) {
+            // Anonymised by a privacy deletion, or the account is gone.
+            return get_string('unknownuser');
+        }
         $name = fullname(username_load_fields_from_object((object) [], $row, 'reporter'));
         $profileurl = new \moodle_url('/user/profile.php', ['id' => $row->reporterid, 'course' => $row->courseid]);
         return \html_writer::link($profileurl, $name);
@@ -377,7 +432,8 @@ class report_table extends \table_sql {
      * @return string
      */
     protected function action_button(\stdClass $row, string $action, string $langkey): string {
-        $url = new \moodle_url('/local/forumcare/report.php', [
+        $url = new \moodle_url('/local/forumcare/report.php', $this->returnparams);
+        $url->params([
             'courseid' => $row->courseid,
             'reportid' => $row->id,
             'moderate' => $action,

@@ -120,5 +120,20 @@ function xmldb_local_forumcare_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026101200, 'local', 'forumcare');
     }
 
+    if ($oldversion < 2026110300) {
+        // AutoReport: a per-reason switch (off by default) and its telltale strings.
+        $table = new xmldb_table('local_forumcare_reason');
+        $field = new xmldb_field('autoreport', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'timecreated');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $field = new xmldb_field('autoreportstrings', XMLDB_TYPE_TEXT, null, null, null, null, null, 'autoreport');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026110300, 'local', 'forumcare');
+    }
+
     return true;
 }
