@@ -4,6 +4,50 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.2] - 2026-11-10
+
+### Added
+
+- Backup with user data (`backup_local_forumcare_plugin`) includes the
+  forum's `local_forumcare_hidden` rows (`hiddenposts/hiddenpost`, with
+  `hiddenby` annotated as a user). Restore maps them to the new post ids in
+  `after_restore_module()`, builds each row from the known fields only, sets
+  `originalmessagetrust` to 0 and records the restored post's message as the
+  placeholder. Posts without a mapping, or already backed, are skipped.
+- The privacy export lists reports filed against the user's own posts
+  (role `reportee`: post id, reason, status, outcome, time), without the
+  reporter's identity or comment.
+- `helper::is_protected_from_sitewide_suspension()` and new string
+  `errorcannotsuspendsitewideprivileged`.
+- New tests in `tests/backup_restore_test.php`,
+  `tests/moderate_report_test.php`, `tests/privacy/provider_test.php` and
+  `tests/submit_report_test.php`.
+
+### Changed
+
+- `settings:thresholdsuspendsitewide_desc` says who is never suspended
+  site-wide. README documents backup and restore and the wider protection.
+- The `postid-reporterid` index on `local_forumcare_report` is no longer
+  unique (`install.xml`; upgrade step 2026111000 drops the unique index and
+  adds a non-unique one).
+
+### Fixed
+
+- Site-wide suspension, automatic and manual (`suspend_site`), checked only
+  the user's role in the reported post's course. It now also spares anyone
+  with `local/forumcare:reviewreports` or `moodle/course:update` in any
+  course, and anyone with a role assignment at system or category level, as
+  well as site admins and holders of `local/forumcare:suspendsitewide`.
+  The review queue hides "Suspend site-wide" for them, and `report.php`
+  shows the new error as a notification.
+- A privacy erasure of a second reporter of the same post failed on the
+  unique index, as both reporter ids are anonymised to 0.
+- A double submit could file two reports by the same user on one post:
+  `submit_report` now checks for an existing report and inserts under a
+  lock (`local_forumcare_report`, per post and user).
+- Restoring a forum backup lost the original content of hidden posts,
+  leaving the placeholder for good.
+
 ## [1.2.1] - 2026-11-03
 
 ### Changed
