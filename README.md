@@ -15,7 +15,7 @@ A Moodle local plugin that lets students report problematic posts in `mod_forum`
   - Optional admin-only auto-suspend of a user's account site-wide once N **different** users have open reports against their posts across the whole site.
   - Auto-block a user from submitting further reports once N of their past reports have been marked frivolous by a moderator. A blocked user sees no difference in the UI — their report is silently recorded but excluded from every threshold count.
   - Any per-forum threshold can be set to `0` to disable that specific protection for that forum only.
-- **Moderators cannot be suspended**: site admins, holders of `local/forumcare:suspendsitewide`, and anyone with `local/forumcare:reviewreports` or `moodle/course:update` in the course are never suspended, by the automatic thresholds or by the manual suspend actions.
+- **Moderators cannot be suspended**: site admins, holders of `local/forumcare:suspendsitewide`, and anyone with `local/forumcare:reviewreports` or `moodle/course:update` in the course are never suspended, by the automatic thresholds or by the manual suspend actions. A site-wide suspension locks the whole account, so it also spares anyone who reviews reports or can edit **any** course, and anyone with a role at system or category level.
 - Only posts the reporter can actually see (groups, private replies, deleted posts) can be reported.
 - A hidden post stays hidden if its author edits it: the placeholder is put back and the edited text becomes the content "Mark as OK" restores.
 - **Teacher review queue** (`/local/forumcare/report.php`), filterable by forum/reporter/reportee and by report type (all, AutoReport only, or reports by people only), showing pending reports and reports reviewed in the last 7 days by default (a "Show all reports" button lists the rest), with a "Reported" date/time column and the post title, forum name, and reporter/reportee names linking to the post, forum, and profile pages respectively. Reportable columns are independently sortable.
@@ -56,7 +56,11 @@ A reason that has reports filed under it cannot be deleted (doing so would drop 
 
 This plugin stores personal data (who reported what, and why) and implements the full `core_privacy` API, including `core_userlist_provider`. Since report rows are shared between the reporter, the reportee, and the reviewer, deleting a user's data anonymises that user's own identifying fields on the row (and blanks a reporter's free-text comment) rather than deleting the row outright, since other users still need it as moderation history.
 
-Hidden posts keep a backup of their original content (so it can be restored when unhidden). This backup is covered by the privacy API too: a subject-access export returns the author their original hidden content and tells a moderator which posts they hid, erasure anonymises the moderator id and deletes the backups of the erased user's own posts, and the backup is removed when the forum or course is deleted. Uninstalling the plugin restores every still-hidden post's original content before its tables are dropped.
+Hidden posts keep a backup of their original content (so it can be restored when unhidden). This backup is covered by the privacy API too: a subject-access export returns the author their original hidden content and the reports filed against their posts (reason, status and outcome, without the reporter's identity or comment), tells a moderator which posts they hid, erasure anonymises the moderator id and deletes the backups of the erased user's own posts, and the backup is removed when the forum or course is deleted. Uninstalling the plugin restores every still-hidden post's original content before its tables are dropped.
+
+## Backup and restore
+
+A forum's backup carries its forum care settings. With user data (including the recycle bin's automatic backups), it also carries the original content of its hidden posts, so a restored hidden post stays hidden and its original is kept rather than lost. Reports are never backed up, because they identify the users involved, so a restored hidden post has no report in the review queue to mark OK; its original is returned to its author in a privacy export and written back into the post if the plugin is uninstalled.
 
 ## Known limitations
 

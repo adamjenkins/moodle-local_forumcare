@@ -130,22 +130,46 @@ class provider implements
                 continue;
             }
 
-            $reports = $DB->get_records('local_forumcare_report', ['forumid' => $cm->instance]);
+            // Reports the user filed or reviewed, and reports filed against the
+            // user's own posts.
+            $reportsql = "SELECT r.*, p.userid AS authorid, rs.name AS reasonname
+                            FROM {local_forumcare_report} r
+                       LEFT JOIN {forum_posts} p ON p.id = r.postid
+                       LEFT JOIN {local_forumcare_reason} rs ON rs.id = r.reasonid
+                           WHERE r.forumid = :forumid
+                                 AND (r.reporterid = :userid1 OR r.reviewedby = :userid2 OR p.userid = :userid3)";
+            $reports = $DB->get_records_sql($reportsql, [
+                'forumid' => $cm->instance,
+                'userid1' => $userid,
+                'userid2' => $userid,
+                'userid3' => $userid,
+            ]);
             $exportdata = [];
             foreach ($reports as $report) {
-                if ($report->reporterid != $userid && $report->reviewedby != $userid) {
-                    // Only export rows where this user is reporter or reviewer here;
-                    // reports against the user's own posts are exported separately below.
-                    continue;
+                if ($report->reporterid == $userid || $report->reviewedby == $userid) {
+                    $exportdata[] = [
+                        'postid' => $report->postid,
+                        'role' => $report->reporterid == $userid ? 'reporter' : 'reviewer',
+                        'comment' => $report->comment,
+                        'status' => $report->status,
+                        'outcome' => $report->outcome,
+                        'timecreated' => \core_privacy\local\request\transform::datetime($report->timecreated),
+                    ];
                 }
-                $exportdata[] = [
-                    'postid' => $report->postid,
-                    'role' => $report->reporterid == $userid ? 'reporter' : 'reviewer',
-                    'comment' => $report->comment,
-                    'status' => $report->status,
-                    'outcome' => $report->outcome,
-                    'timecreated' => \core_privacy\local\request\transform::datetime($report->timecreated),
-                ];
+                if ($report->authorid == $userid) {
+                    // A report against the user's own post. Who filed it and their
+                    // comment are the reporter's data, so they are left out.
+                    $exportdata[] = [
+                        'postid' => $report->postid,
+                        'role' => 'reportee',
+                        'reason' => $report->reasonname === null ? '' : format_string($report->reasonname, true, [
+                            'context' => $context,
+                        ]),
+                        'status' => $report->status,
+                        'outcome' => $report->outcome,
+                        'timecreated' => \core_privacy\local\request\transform::datetime($report->timecreated),
+                    ];
+                }
             }
 
             // Hidden-post backups for this forum where the user is the author of

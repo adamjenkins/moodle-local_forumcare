@@ -335,10 +335,12 @@ class helper {
         }
 
         // Site-wide auto-suspension is deliberately admin-only and not overridable per-forum.
+        // It locks the whole account, so it also spares anyone who moderates anywhere on the
+        // site, not only in this course.
         $sitewidethreshold = (int) get_config('local_forumcare', 'threshold_suspend_sitewide');
         if ($sitewidethreshold > 0) {
             $count = self::count_open_reports_against_user_sitewide($post->userid);
-            if ($count >= $sitewidethreshold) {
+            if ($count >= $sitewidethreshold && !self::is_protected_from_sitewide_suspension((int) $post->userid)) {
                 self::suspend_sitewide($post->userid, 0, true);
             }
         }
@@ -563,6 +565,43 @@ class helper {
     }
 
     /**
+     * Whether a user must never be suspended site-wide by this plugin. A site-wide
+     * suspension locks the whole account, so a role held in the reporting course is
+     * not enough to decide: this protects site admins, holders of
+     * local/forumcare:suspendsitewide, anyone who reviews reports or can edit any
+     * course (course or category role), and anyone with a role assigned at system
+     * or category level.
+     *
+     * @param int $userid
+     * @return bool
+     */
+    public static function is_protected_from_sitewide_suspension(int $userid): bool {
+        global $DB;
+
+        if (is_siteadmin($userid)) {
+            return true;
+        }
+        if (has_capability('local/forumcare:suspendsitewide', \context_system::instance(), $userid)) {
+            return true;
+        }
+        foreach (['local/forumcare:reviewreports', 'moodle/course:update'] as $capability) {
+            if (!empty(get_user_capability_course($capability, $userid, true, '', '', 1))) {
+                return true;
+            }
+        }
+
+        $sql = "SELECT 1
+                  FROM {role_assignments} ra
+                  JOIN {context} ctx ON ctx.id = ra.contextid
+                 WHERE ra.userid = :userid AND ctx.contextlevel IN (:system, :category)";
+        return $DB->record_exists_sql($sql, [
+            'userid' => $userid,
+            'system' => CONTEXT_SYSTEM,
+            'category' => CONTEXT_COURSECAT,
+        ]);
+    }
+
+    /**
      * Forums in a course where a moderator may only see reports on their own
      * groups' discussions: those in separate groups mode, when the user lacks
      * moodle/site:accessallgroups in the forum. Mirrors mod_forum's own rule
@@ -727,6 +766,9 @@ class helper {
                 && self::is_protected_from_suspension((int) $post->userid, (int) $report->courseid)
         ) {
             throw new \moodle_exception('errorcannotsuspendprivileged', 'local_forumcare');
+        }
+        if ($action === 'suspend_site' && self::is_protected_from_sitewide_suspension((int) $post->userid)) {
+            throw new \moodle_exception('errorcannotsuspendsitewideprivileged', 'local_forumcare');
         }
 
         switch ($action) {

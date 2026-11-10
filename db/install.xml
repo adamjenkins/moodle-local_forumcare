@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/forumcare/db" VERSION="20261103" COMMENT="XMLDB file for Moodle local/forumcare"
+<XMLDB PATH="local/forumcare/db" VERSION="20261110" COMMENT="XMLDB file for Moodle local/forumcare"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -75,7 +75,7 @@
         <KEY NAME="reasonid" TYPE="foreign" FIELDS="reasonid" REFTABLE="local_forumcare_reason" REFFIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="postid-reporterid" UNIQUE="true" FIELDS="postid, reporterid"/>
+        <INDEX NAME="postid-reporterid" UNIQUE="false" FIELDS="postid, reporterid" COMMENT="Not unique: a privacy erasure anonymises every erased reporter of a post to 0; submit_report refuses a second report from the same user"/>
         <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
         <INDEX NAME="forumid" UNIQUE="false" FIELDS="forumid"/>
         <INDEX NAME="reporterid" UNIQUE="false" FIELDS="reporterid"/>

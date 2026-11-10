@@ -135,5 +135,22 @@ function xmldb_local_forumcare_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026110300, 'local', 'forumcare');
     }
 
+    if ($oldversion < 2026111000) {
+        // A privacy erasure anonymises reporterid to 0, so a unique (postid, reporterid)
+        // index failed when a second reporter of the same post was erased. Make it
+        // non-unique; submit_report still refuses a second report from the same user.
+        $table = new xmldb_table('local_forumcare_report');
+        $uniqueindex = new xmldb_index('postid-reporterid', XMLDB_INDEX_UNIQUE, ['postid', 'reporterid']);
+        if ($dbman->index_exists($table, $uniqueindex)) {
+            $dbman->drop_index($table, $uniqueindex);
+        }
+        $index = new xmldb_index('postid-reporterid', XMLDB_INDEX_NOTUNIQUE, ['postid', 'reporterid']);
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        upgrade_plugin_savepoint(true, 2026111000, 'local', 'forumcare');
+    }
+
     return true;
 }

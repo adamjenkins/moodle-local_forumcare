@@ -73,7 +73,7 @@ if ($moderate !== '' && $reportid) {
             try {
                 helper::apply_moderation($reportid, $moderate, $USER->id);
             } catch (moodle_exception $e) {
-                if ($e->errorcode !== 'errorcannotsuspendprivileged') {
+                if (!in_array($e->errorcode, ['errorcannotsuspendprivileged', 'errorcannotsuspendsitewideprivileged'], true)) {
                     throw $e;
                 }
                 redirect($returnurl, $e->getMessage(), null, \core\output\notification::NOTIFY_ERROR);

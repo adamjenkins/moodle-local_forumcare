@@ -95,10 +95,6 @@ class submit_report extends external_api {
             throw new \moodle_exception('errorreasonrequired', 'local_forumcare');
         }
 
-        if ($DB->record_exists('local_forumcare_report', ['postid' => $params['postid'], 'reporterid' => $USER->id])) {
-            throw new \moodle_exception('erroralreadyreported', 'local_forumcare');
-        }
-
         // A user blocked for prior frivolous reports must see no difference in the
         // reporting UI: their report is recorded (for audit purposes) but marked
         // 'ignored' so it never counts toward any threshold and is excluded from
@@ -115,7 +111,23 @@ class submit_report extends external_api {
         $report->comment = $params['comment'];
         $report->status = $isblocked ? 'ignored' : 'pending';
         $report->timecreated = time();
-        $reportid = $DB->insert_record('local_forumcare_report', $report);
+
+        // The (postid, reporterid) index is not unique, because a privacy erasure
+        // anonymises every erased reporter to 0. A lock stops a double submit from
+        // filing two reports by the same user between the check and the insert.
+        $lockfactory = \core\lock\lock_config::get_lock_factory('local_forumcare_report');
+        $lock = $lockfactory->get_lock('post' . $params['postid'] . 'user' . $USER->id, 5);
+        if (!$lock) {
+            throw new \moodle_exception('erroralreadyreported', 'local_forumcare');
+        }
+        try {
+            if ($DB->record_exists('local_forumcare_report', ['postid' => $params['postid'], 'reporterid' => $USER->id])) {
+                throw new \moodle_exception('erroralreadyreported', 'local_forumcare');
+            }
+            $reportid = $DB->insert_record('local_forumcare_report', $report);
+        } finally {
+            $lock->release();
+        }
 
         $event = \local_forumcare\event\post_reported::create([
             'context' => $context,

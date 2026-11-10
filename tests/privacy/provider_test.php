@@ -433,6 +433,91 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     /**
+     * Erasing two reporters of the same post, one after the other and then
+     * together, anonymises every row without a duplicate-key failure.
+     */
+    public function test_erasing_two_reporters_of_same_post(): void {
+        global $DB;
+
+        $author = $this->getDataGenerator()->create_user();
+        $reporters = [];
+        for ($i = 0; $i < 4; $i++) {
+            $reporters[] = $this->getDataGenerator()->create_user();
+        }
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $discussion = $forumgenerator->create_discussion([
+            'course' => $this->course->id,
+            'forum' => $this->forum->id,
+            'userid' => $author->id,
+        ]);
+        $post = $DB->get_record('forum_posts', ['discussion' => $discussion->id], '*', MUST_EXIST);
+        $reportids = [];
+        foreach ($reporters as $reporter) {
+            $reportids[] = $this->insert_report($post, (int) $reporter->id, 'secret ' . $reporter->id);
+        }
+        $context = $this->forum_context();
+
+        // One after the other.
+        provider::delete_data_for_user(new approved_contextlist($reporters[0], 'local_forumcare', [$context->id]));
+        provider::delete_data_for_user(new approved_contextlist($reporters[1], 'local_forumcare', [$context->id]));
+
+        // Two at once.
+        provider::delete_data_for_users(new \core_privacy\local\request\approved_userlist(
+            $context,
+            'local_forumcare',
+            [$reporters[2]->id, $reporters[3]->id]
+        ));
+
+        foreach ($reportids as $reportid) {
+            $report = $DB->get_record('local_forumcare_report', ['id' => $reportid], '*', MUST_EXIST);
+            $this->assertEquals(0, $report->reporterid);
+            $this->assertSame('', (string) $report->comment);
+        }
+        // The anonymised reports still count toward the post's hide threshold.
+        $this->assertEquals(4, helper::count_open_reports_for_post((int) $post->id));
+    }
+
+    /**
+     * A post author's export lists the reports filed against their posts, with
+     * the reason and outcome but without the reporter's identity or comment.
+     */
+    public function test_export_includes_reports_against_own_posts(): void {
+        global $DB;
+
+        $author = $this->getDataGenerator()->create_user();
+        $reporter = $this->getDataGenerator()->create_user();
+        $reviewer = $this->getDataGenerator()->create_user();
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $discussion = $forumgenerator->create_discussion([
+            'course' => $this->course->id,
+            'forum' => $this->forum->id,
+            'userid' => $author->id,
+        ]);
+        $post = $DB->get_record('forum_posts', ['discussion' => $discussion->id], '*', MUST_EXIST);
+        $reportid = $this->insert_report($post, (int) $reporter->id, 'reporter private comment', (int) $reviewer->id);
+        $DB->set_field('local_forumcare_report', 'outcome', 'ok', ['id' => $reportid]);
+
+        $context = $this->forum_context();
+        $contextlist = provider::get_contexts_for_userid($author->id);
+        $this->assertContains((int) $context->id, array_map('intval', $contextlist->get_contextids()));
+
+        provider::export_user_data(new approved_contextlist($author, 'local_forumcare', [$context->id]));
+
+        $exportdata = writer::with_context($context)->get_data([get_string('pluginname', 'local_forumcare')]);
+        $this->assertNotEmpty($exportdata);
+        $this->assertCount(1, $exportdata->reports);
+        $entry = $exportdata->reports[0];
+        $this->assertSame('reportee', $entry['role']);
+        $this->assertEquals($post->id, $entry['postid']);
+        $this->assertSame('Offensive language', $entry['reason']);
+        $this->assertSame('reviewed', $entry['status']);
+        $this->assertSame('ok', $entry['outcome']);
+        $this->assertArrayNotHasKey('comment', $entry);
+        $this->assertArrayNotHasKey('reporterid', $entry);
+        $this->assertStringNotContainsString('reporter private comment', json_encode($exportdata));
+    }
+
+    /**
      * The provider declares the userlist interface so core routes per-user
      * deletions within a context to it.
      */

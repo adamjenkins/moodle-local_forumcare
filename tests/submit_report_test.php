@@ -26,6 +26,7 @@ use local_forumcare\local\helper;
  * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     \local_forumcare\external\submit_report
+ * @covers     \local_forumcare\local\helper::is_protected_from_sitewide_suspension
  */
 final class submit_report_test extends \advanced_testcase {
     /** @var \stdClass */
@@ -323,6 +324,69 @@ final class submit_report_test extends \advanced_testcase {
         $this->report_author_twice($author);
 
         $this->assertEquals(1, $DB->get_field('user', 'suspended', ['id' => $author->id]));
+    }
+
+    /**
+     * Automatic site-wide suspension spares a user who is only a student in the
+     * reporting course but teaches another course.
+     */
+    public function test_teacher_elsewhere_not_auto_suspended_sitewide(): void {
+        global $DB;
+        set_config('threshold_suspend', 0, 'local_forumcare');
+        set_config('threshold_suspend_sitewide', 2, 'local_forumcare');
+
+        $author = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($author->id, $this->course->id, 'student');
+        $othercourse = $this->getDataGenerator()->create_course(['summary' => '']);
+        $this->getDataGenerator()->enrol_user($author->id, $othercourse->id, 'editingteacher');
+
+        $this->report_author_twice($author);
+
+        $this->assertEquals(0, $DB->get_field('user', 'suspended', ['id' => $author->id]));
+    }
+
+    /**
+     * Automatic site-wide suspension spares a user with a category-level role.
+     */
+    public function test_category_role_not_auto_suspended_sitewide(): void {
+        global $DB;
+        set_config('threshold_suspend', 0, 'local_forumcare');
+        set_config('threshold_suspend_sitewide', 2, 'local_forumcare');
+
+        $author = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($author->id, $this->course->id, 'student');
+        $category = $this->getDataGenerator()->create_category();
+        $managerroleid = $DB->get_field('role', 'id', ['shortname' => 'manager'], MUST_EXIST);
+        role_assign($managerroleid, $author->id, \context_coursecat::instance($category->id)->id);
+
+        $this->report_author_twice($author);
+
+        $this->assertEquals(0, $DB->get_field('user', 'suspended', ['id' => $author->id]));
+    }
+
+    /**
+     * The site-wide protection check: a plain student is not protected; a
+     * teacher of any course, a category role holder and an admin are.
+     */
+    public function test_is_protected_from_sitewide_suspension(): void {
+        global $DB;
+
+        $student = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($student->id, $this->course->id, 'student');
+        $this->assertFalse(helper::is_protected_from_sitewide_suspension((int) $student->id));
+
+        $tutor = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($tutor->id, $this->course->id, 'student');
+        $othercourse = $this->getDataGenerator()->create_course(['summary' => '']);
+        $this->getDataGenerator()->enrol_user($tutor->id, $othercourse->id, 'teacher');
+        $this->assertTrue(helper::is_protected_from_sitewide_suspension((int) $tutor->id));
+
+        $creator = $this->getDataGenerator()->create_user();
+        $creatorroleid = $DB->get_field('role', 'id', ['shortname' => 'coursecreator'], MUST_EXIST);
+        role_assign($creatorroleid, $creator->id, \context_system::instance()->id);
+        $this->assertTrue(helper::is_protected_from_sitewide_suspension((int) $creator->id));
+
+        $this->assertTrue(helper::is_protected_from_sitewide_suspension((int) get_admin()->id));
     }
 
     /**

@@ -409,7 +409,10 @@ class report_table extends \table_sql {
         // refuses), so do not offer buttons that can only fail.
         if (!\local_forumcare\local\helper::is_protected_from_suspension((int) $row->reporteeid, (int) $row->courseid)) {
             $actions['suspend_course'] = 'action:suspendcourse';
-            if ($this->cansuspendsitewide) {
+            if (
+                $this->cansuspendsitewide
+                    && !\local_forumcare\local\helper::is_protected_from_sitewide_suspension((int) $row->reporteeid)
+            ) {
                 $actions['suspend_site'] = 'action:suspendsite';
             }
         }

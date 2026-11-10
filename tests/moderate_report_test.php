@@ -219,6 +219,32 @@ final class moderate_report_test extends \advanced_testcase {
     }
 
     /**
+     * The manual suspend_site action is refused for a user who is a student in
+     * this course but teaches another one, while suspend_course still works.
+     */
+    public function test_cannot_suspend_site_teacher_of_other_course(): void {
+        global $DB;
+
+        [$author, $report] = $this->create_report_against_role('student');
+        $othercourse = $this->getDataGenerator()->create_course(['summary' => '']);
+        $this->getDataGenerator()->enrol_user($author->id, $othercourse->id, 'editingteacher');
+        $admin = get_admin();
+
+        try {
+            helper::apply_moderation($report->id, 'suspend_site', (int) $admin->id);
+            $this->fail('Suspending a teacher of another course site-wide must be refused');
+        } catch (\moodle_exception $e) {
+            $this->assertEquals('errorcannotsuspendsitewideprivileged', $e->errorcode);
+        }
+        $this->assertEquals(0, $DB->get_field('user', 'suspended', ['id' => $author->id]));
+        $this->assertEquals('pending', $DB->get_field('local_forumcare_report', 'status', ['id' => $report->id]));
+
+        // Within this course they are only a student, so a course suspension is allowed.
+        helper::apply_moderation($report->id, 'suspend_course', (int) $admin->id);
+        $this->assertEquals('reviewed', $DB->get_field('local_forumcare_report', 'status', ['id' => $report->id]));
+    }
+
+    /**
      * The manual suspend_site action suspends an ordinary student author.
      */
     public function test_suspend_site_action(): void {
